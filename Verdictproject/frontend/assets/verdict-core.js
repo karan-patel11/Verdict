@@ -122,4 +122,81 @@
     error: { icon: "error", cls: "k-error", label: "error" },
     finding: { icon: "finding", cls: "k-finding", label: "finding" },
   };
+
+  /* ---- glossary: expansion + why-it-matters-HERE, grounded in this project ---------- */
+  /* Each entry is { term, full, why }. `why` is one sentence about the role the term plays
+     in Verdict specifically — not a textbook definition. Consumed by initGlossary() and by
+     the <button class="v-gl" data-gl="KEY"> pattern usable directly in static markup. */
+  Verdict.glossary = {
+    ACI: { term: "ACI", full: "Adaptive Conformal Inference",
+      why: "Gibbs & Candès' online update that nudges the abstention threshold αₜ after each reviewer correction, so the field layer's coverage guarantee survives documents drifting away from anything seen in training." },
+    AURC: { term: "AURC", full: "Area Under the Risk–Coverage curve",
+      why: "The one number that decides whether the Kamath calibrator earns a place on the routing path — here its 0.059 loses to raw softmax's 0.048, so it is held off-path." },
+    DSCR: { term: "DSCR", full: "Debt-Service Coverage Ratio",
+      why: "Operating income over debt service. A derived metric Verdict refuses to compute until every field it depends on has been reviewed — an unresolved input blocks it." },
+    OOD: { term: "OOD", full: "Out-of-distribution",
+      why: "A document archetype or industry the extractor was never calibrated on. The guarantee is built to survive exactly these; the stream's OOD rate is tracked window by window." },
+    ECOA: { term: "ECOA", full: "Equal Credit Opportunity Act",
+      why: "The U.S. fair-lending rule that turns per-segment disparate-impact telemetry into a compliance obligation — which is why the worst-served segment is shown, never averaged away." },
+    NAICS: { term: "NAICS", full: "North American Industry Classification System",
+      why: "The 2-digit industry code Verdict segments coverage and fairness by, so the worst industry is surfaced instead of hidden inside an aggregate." },
+    SGR: { term: "SGR", full: "Selective Guaranteed Risk (Gascuel–Caraux bound)",
+      why: "The risk-controlled threshold Verdict uses to hold conditional selective risk at r* — it violates on 15% of windows where the naive max-coverage rule violates on 57%." },
+    "r*": { term: "r*", full: "Target conditional selective risk",
+      why: "The maximum error rate (here 0.05) Verdict promises among the field values it automates. The naive rule breaks this promise on a majority of held-out windows." },
+    ALPHA: { term: "α", full: "Target marginal miscoverage",
+      why: "The fraction of all fields (here 0.10) that may be automated-and-wrong. This is the distribution-free quantity Loop A's ACI update actually guarantees — not conditional risk." },
+    MARGINAL: { term: "marginal miscoverage", full: "Automated-and-wrong ÷ all fields",
+      why: "The exact quantity Loop A guarantees at α. It is deliberately not conditional selective risk — Verdict reports that separately and never conflates the two." },
+    CONFORMITY: { term: "conformity score", full: "Distribution-free nonconformity score",
+      why: "The scale-normalized score the guarantee is defined over; it holds for any extractor that produces one, which is why the promise attaches to the score, not the model." },
+    LOOPA: { term: "Loop A", full: "Field-extraction loop (GUARANTEED)",
+      why: "Extract → score → calibrate → route or accept → observe correction → update αₜ. Reviewer corrections give fast feedback, so ACI applies and the coverage guarantee holds here." },
+    LOOPB: { term: "Loop B", full: "Case-decision loop (INSTRUMENTED)",
+      why: "Aggregates fields into a case verdict. It runs no ACI update and makes no coverage claim — labels are delayed and selective, so it is measured, never guaranteed." },
+    NOI: { term: "NOI", full: "Net Operating Income",
+      why: "A representative extracted value whose provenance the Evidence Inspector traces all the way down to source document, page, section, and row." },
+    ADB: { term: "ADB", full: "Average Daily Balance",
+      why: "A bank-statement field Verdict extracts with its verbatim span; its ratio is blocked whenever a required input is still under review." },
+    "MEASURED": { term: "[MEASURED]", full: "From a passing test or report.json",
+      why: "An observed property of the run — a number the code actually produced, not a claim about the world." },
+    "PARTIAL": { term: "[PARTIAL]", full: "Measured but caveated",
+      why: "A real number, but on synthetic data or at a chosen operating point — read the stated limitation before quoting it." },
+  };
+
+  /* Turn every <button class="v-gl" data-gl="KEY">…</button> under `root` into an accessible
+     hover-AND-focus tooltip: injects the definition popup, links it with aria-describedby, and
+     wires Escape to dismiss. Idempotent. */
+  Verdict.initGlossary = function initGlossary(root) {
+    root = root || document;
+    const nodes = root.querySelectorAll("button.v-gl[data-gl]:not([data-gl-ready])");
+    nodes.forEach((btn, i) => {
+      const key = btn.getAttribute("data-gl");
+      const g = Verdict.glossary[key];
+      if (!g) return;
+      btn.setAttribute("data-gl-ready", "");
+      btn.setAttribute("type", "button");
+      const id =
+        "gl-" + key.replace(/[^a-z0-9]/gi, "") + "-" + Math.random().toString(36).slice(2, 7);
+      const pop = Verdict.el(
+        "span",
+        { class: "v-gl-pop", role: "tooltip", id: id },
+        Verdict.el("span", { class: "v-gl-term" }, g.full),
+        Verdict.el("span", { class: "v-gl-why" }, g.why)
+      );
+      btn.setAttribute("aria-describedby", id);
+      btn.append(pop);
+      // flip the popup to the right edge when the term sits in the right part of the viewport,
+      // so the tooltip never runs off-screen on narrow layouts
+      const place = () => {
+        const r = btn.getBoundingClientRect();
+        btn.classList.toggle("gl-right", r.left > window.innerWidth * 0.55);
+      };
+      btn.addEventListener("mouseenter", place);
+      btn.addEventListener("focus", place);
+      btn.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") btn.blur();
+      });
+    });
+  };
 })();
