@@ -154,10 +154,19 @@
   function renderTabs(M, state, onTab) {
     const host = document.getElementById("ws-tabs");
     host.innerHTML = "";
-    TABS.forEach(([label, id]) => {
+    TABS.forEach(([label, id], i) => {
       const b = el("button", { class: "ws-tab", type: "button", role: "tab",
-        "aria-selected": String(state.tab === id) }, label);
+        "aria-selected": String(state.tab === id), "aria-controls": "ws-tabpanel",
+        tabindex: state.tab === id ? "0" : "-1" }, label);
       b.addEventListener("click", () => onTab(id));
+      b.addEventListener("keydown", (e) => {
+        const d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : e.key === "Home" ? "h" : e.key === "End" ? "e" : 0;
+        if (!d) return;
+        e.preventDefault();
+        const n = d === "h" ? 0 : d === "e" ? TABS.length - 1 : (i + d + TABS.length) % TABS.length;
+        onTab(TABS[n][1]);
+        const next = host.children[n]; if (next) next.focus();
+      });
       host.append(b);
     });
   }
@@ -167,6 +176,7 @@
     host.innerHTML = "";
     ({ decision: tabDecision, financials: tabFinancials, evidence: tabEvidence, ratios: tabRatios,
        confidence: tabConfidence, provenance: tabProvenance, audit: tabAudit }[state.tab] || tabDecision)(host, M, ctx);
+    V.initGlossary(host);
   }
 
   /* ---- Decision tab ---- */
@@ -256,7 +266,7 @@
     M.metrics.forEach((m) => {
       const blocked = m.status === "BLOCKED";
       grid.append(el("div", { class: "ratio" },
-        el("div", { class: "ratio-k" }, m.label.replace(/_/g, " ")),
+        el("div", { class: "ratio-k" }, metricNode(m.label)),
         el("div", { class: "ratio-v" + (blocked ? " blocked" : "") }, blocked ? "Blocked" : (m.summary || "—")),
         el("div", { class: "ratio-note" }, blocked
           ? el("span", {}, el("span", { class: "blk" }, "Blocked"), " — ", (m.summary || "an unresolved input").replace(/^blocked[^·]*·?\s*/i, ""))
@@ -398,9 +408,15 @@
       : (f.accepted
         ? el("span", { class: "v" }, pct(f.confidence, 1), " — ", el("b", { class: "ok" }, "above the reviewer-accuracy gate"), " (" + fmt2(f.reviewer) + "), automated")
         : el("span", { class: "v" }, pct(f.confidence, 1), " — ", el("b", { class: "warn" }, "below the gate"), " (" + fmt2(f.reviewer) + "), routed to review"));
-    const downstream = M.metrics.length ? M.metrics.map((m) => m.label).join(", ") : "None recorded";
     const verif = f.status === "VALIDATED" ? "Validated against the verbatim span — match confirmed"
       : (f.path === "PATH_3" ? "Sources disagree — reconciliation required" : "Routed for reviewer confirmation");
+    // downstream metrics, with known abbreviations tooltipped
+    const downstream = el("span", { class: "v" });
+    if (!M.metrics.length) downstream.append("None recorded");
+    else M.metrics.forEach((m, i) => {
+      if (i) downstream.append(", ");
+      downstream.append(metricNode(m.label));
+    });
 
     host.append(el("div", { class: "insp-block" },
       el("h3", {}, "Provenance chain"),
@@ -408,10 +424,10 @@
         provRow("01", "Extracted value", el("span", { class: "v mono" }, f.value)),
         provRow("02", "Source document", el("span", { class: "v" }, (s.doc_id || "—") + (s.archetype ? " · " + s.archetype.replace(/_/g, " ").toLowerCase() : ""))),
         provRow("03", "Page number", el("span", { class: "v" }, s.page != null ? "Page " + s.page : "—")),
-        provRow("04", "Evidence coordinates", el("span", { class: "v mono" }, "bbox " + bbox)),
+        provRow("04", "Evidence coordinates", el("span", { class: "v mono" }, el("button", { class: "v-gl", "data-gl": "BBOX" }, "bbox"), " " + bbox)),
         provRow("05", "Extraction confidence", confPaired),
         provRow("06", "Verification status", el("span", { class: "v" }, verif)),
-        provRow("07", "Downstream calculations affected", el("span", { class: "v" }, downstream)))));
+        provRow("07", "Downstream calculations affected", downstream))));
 
     // document preview with highlighted span box
     const box = Array.isArray(s.bbox) ? s.bbox : [0.5, 0.4, 0.7, 0.45];
@@ -439,9 +455,13 @@
   function sysRow(k, v) { return el("div", { class: "insp-sys-row" }, el("span", {}, k), v); }
   function glossaryWrap(key) {
     // wrap known abbreviations in the field name with a tooltip
-    const known = { DSCR: "DSCR", ADB_RATIO: "ADB", TOTAL_DEBT_SERVICE: null };
     if (Verdict.glossary[key]) return el("button", { class: "v-gl", "data-gl": key }, key);
     return document.createTextNode(key.replace(/_/g, " "));
+  }
+  function metricNode(label) {
+    if (label === "DSCR") return el("button", { class: "v-gl", "data-gl": "DSCR" }, "DSCR");
+    if (label === "ADB_RATIO") { const s = el("span", {}); s.append(el("button", { class: "v-gl", "data-gl": "ADB" }, "ADB"), "_RATIO"); return s; }
+    return document.createTextNode(label.replace(/_/g, " "));
   }
 
   /* ================================ COMMAND BAR ================================ */

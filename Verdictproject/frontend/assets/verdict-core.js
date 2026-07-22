@@ -162,6 +162,22 @@
       why: "An observed property of the run — a number the code actually produced, not a claim about the world." },
     "PARTIAL": { term: "[PARTIAL]", full: "Measured but caveated",
       why: "A real number, but on synthetic data or at a chosen operating point — read the stated limitation before quoting it." },
+    SMB: { term: "SMB", full: "Small & medium-sized business",
+      why: "The borrower profile Verdict is built for — where document quality and industry vary case to case, so knowing when not to decide matters more than raw automation." },
+    F4: { term: "F4", full: "Finding F4 (off-path calibrator)",
+      why: "The project's own audit note that the Kamath calibrator does not beat raw softmax on this stream, so routing is held on raw confidence instead of the calibrator." },
+    "P&L": { term: "P&L", full: "Profit & Loss statement",
+      why: "A core financial document Verdict extracts from and cross-references against the tax return — the match that confirms a value's provenance." },
+    TATA: { term: "TATA", full: "Total Accruals to Total Assets",
+      why: "A Beneish earnings-manipulation signal. Its exact construction is one of the recorded paper-vs-synthesis discrepancies, stated rather than silently resolved." },
+    "D&A": { term: "D&A", full: "Depreciation & Amortization",
+      why: "A Beneish input; the recorded discrepancy concerns how D&A enters the TATA accruals term." },
+    BBOX: { term: "bbox", full: "Bounding box [x0, y0, x1, y1]",
+      why: "The normalized rectangle locating an extracted value on its page, so a reviewer can jump straight to the exact spot instead of hunting through the document." },
+    DISPARATE: { term: "disparate impact", full: "Per-segment outcome gap (ECOA)",
+      why: "The fair-lending quantity Loop B instruments per NAICS segment. Under ECOA it is a compliance obligation, which is why the worst segment is shown, not averaged away." },
+    TAU: { term: "τ", full: "Selective threshold τ",
+      why: "The per-batch acceptance threshold on the conformity score; values inside it are automated, values outside are routed. It moves as the ACI update responds to corrections." },
   };
 
   /* Turn every <button class="v-gl" data-gl="KEY">…</button> under `root` into an accessible

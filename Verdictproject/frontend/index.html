@@ -108,7 +108,7 @@
           <li><span class="s">aggregate</span><span class="d">compose reviewed fields into a case view</span></li>
           <li><span class="s">derive</span><span class="d">compute ratios &mdash; blocked on any unresolved input</span></li>
           <li><span class="s">decide</span><span class="d">risk tier and exposure, as telemetry</span></li>
-          <li><span class="s">measure</span><span class="d">track disparate impact per segment, worst shown</span></li>
+          <li><span class="s">measure</span><span class="d">track <button class="v-gl" data-gl="DISPARATE">disparate impact</button> per segment, worst shown</span></li>
         </ol>
         <p class="v-loop-note">Loop B does <b>not</b> inherit Loop A&rsquo;s guarantee. Derived&#8209;metric
           confidence is not propagated &mdash; an open problem, stated, not hidden.</p>
@@ -134,7 +134,7 @@
 
     <div class="intel-grid">
       <div class="intel-verdict">
-        <span class="v-chip v-chip-i">&#9671; Off&#8209;path (F4)</span>
+        <span class="v-chip v-chip-i">&#9671; Off&#8209;path (<button class="v-gl gl-onchip" data-gl="F4">F4</button>)</span>
         <p class="intel-verdict-t">On this stream the <button class="v-gl" data-gl="AURC">AURC</button> calibrator
           <b>loses</b> to raw extractor softmax, so routing uses raw confidence and every value is
           labelled &ldquo;raw,&rdquo; not &ldquo;calibrated.&rdquo;</p>
@@ -181,7 +181,7 @@
         <li><span class="pc-n">03</span><div><span class="pc-k">Page number</span><span class="pc-v">Page 12</span></div></li>
         <li><span class="pc-n">04</span><div><span class="pc-k">Evidence coordinates</span><span class="pc-v">Section 3, Row 7</span></div></li>
         <li><span class="pc-n">05</span><div><span class="pc-k">Extraction confidence</span><span class="pc-v">98.2% &mdash; <b>above the reviewer&#8209;accuracy gate</b>, so automated</span></div></li>
-        <li><span class="pc-n">06</span><div><span class="pc-k">Verification status</span><span class="pc-v">Cross&#8209;referenced with P&amp;L statement &mdash; match confirmed</span></div></li>
+        <li><span class="pc-n">06</span><div><span class="pc-k">Verification status</span><span class="pc-v">Cross&#8209;referenced with <button class="v-gl" data-gl="P&L">P&amp;L</button> statement &mdash; match confirmed</span></div></li>
         <li><span class="pc-n">07</span><div><span class="pc-k">Downstream calculations affected</span><span class="pc-v"><button class="v-gl" data-gl="DSCR">DSCR</button>, Coverage Ratio, Debt Service Capacity</span></div></li>
       </ol>
     </div>
@@ -255,7 +255,7 @@
       <li><span class="m-n">03</span><div><h3>Gibbs &amp; Cand&egrave;s &middot; 2021</h3><p><button class="v-gl" data-gl="ACI">Adaptive Conformal Inference</button> &mdash; the online threshold update that keeps Loop A&rsquo;s guarantee alive under distribution shift.</p></div></li>
       <li><span class="m-n">04</span><div><h3>Kamath, Jia &amp; Liang &middot; 2020</h3><p>Selective QA under domain shift &mdash; the calibrator design Verdict tests, and holds <button class="v-gl" data-gl="AURC">off&#8209;path</button> when it fails to beat softmax.</p></div></li>
       <li><span class="m-n">05</span><div><h3>Mohri &amp; Hashimoto &middot; 2024</h3><p>Conformal factuality guarantees for language models &mdash; the framing for attaching a distribution&#8209;free promise to a generative extractor.</p></div></li>
-      <li><span class="m-n">06</span><div><h3>Beneish &middot; 1999</h3><p>Detection of earnings manipulation &mdash; the financial&#8209;forensics signals behind contradiction checks (with the TATA &minus;D&amp;A conflict recorded in <code>DISCREPANCIES.md</code>).</p></div></li>
+      <li><span class="m-n">06</span><div><h3>Beneish &middot; 1999</h3><p>Detection of earnings manipulation &mdash; the financial&#8209;forensics signals behind contradiction checks (with the <button class="v-gl" data-gl="TATA">TATA</button> &minus;<button class="v-gl" data-gl="D&A">D&amp;A</button> conflict recorded in <code>DISCREPANCIES.md</code>).</p></div></li>
     </ol>
   </section>
 
@@ -280,7 +280,7 @@
   <div class="v-foot-in">
     <div>
       <div class="brand"><span id="foot-logo" aria-hidden="true"></span> Verdict <span class="foot-by">by kaps</span></div>
-      <p>Calibrated, field&#8209;level abstention for SMB credit underwriting. Synthetic proof&#8209;of&#8209;concept &mdash;
+      <p>Calibrated, field&#8209;level abstention for <button class="v-gl" data-gl="SMB">SMB</button> credit underwriting. Synthetic proof&#8209;of&#8209;concept &mdash;
         the mechanism is real; the corpus, extractor, and reviewer data are simulated.</p>
     </div>
     <div class="v-foot-links">
