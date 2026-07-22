@@ -1,0 +1,1306 @@
+Consistent Estimators for Learning to Defer to an Expert
+Hussein Mozannar 1 David Sontag 1
+Abstract
+Learning algorithms are often used in conjunction
+with expert decision makers in practical scenarios,
+however this fact is largely ignored when design-
+ing these algorithms. In this paper we explore
+how to learn predictors that can either predict
+or choose to defer the decision to a downstream
+expert. Given only samples of the expert’s deci-
+sions, we give a procedure based on learning a
+classiﬁer and a rejector and analyze it theoreti-
+cally. Our approach is based on a novel reduction
+to cost sensitive learning where we give a con-
+sistent surrogate loss for cost sensitive learning
+that generalizes the cross entropy loss. We show
+the effectiveness of our approach on a variety of
+experimental tasks.
+1. Introduction
+Machine learning systems are now being deployed in set-
+tings to complement human decision makers such as in
+healthcare (Hamid et al., 2017; Raghu et al., 2019a), risk
+assessment (Green & Chen, 2019a) and content moderation
+(Link et al., 2016). These models are either used as a tool to
+help the downstream human decision maker: judges relying
+on algorithmic risk assessment tools (Green & Chen, 2019b)
+and risk scores being used in the ICU (Futoma et al., 2017),
+or instead these learning models are solely used to make the
+ﬁnal prediction on a selected subset of examples (Madras
+et al., 2018; Raghu et al., 2019a). A current application of
+the latter setting is Facebook’s and other online platforms
+content moderation approach (Vincent, 2019; Jhaver et al.,
+2019): an algorithm is used to ﬁlter easily detectible inap-
+propriate content and the rest of the examples are screened
+by a team of human moderators. Another motivating appli-
+cation arises in health care settings, for example deep neural
+networks can outperform radiologists in detecting pneumo-
+nia from chest X-rays (Irvin et al., 2019), however, many
+1CSAIL, Massachusetts Institute of Technology, Cambridge,
+MA, USA. Correspondence to:
+Hussein Mozannar <mozan-
+nar@mit.edu>.
+Proceedings of the 37 th International Conference on Machine
+Learning, Online, PMLR 119, 2020. Copyright 2020 by the au-
+thor(s).
+obstacles are limiting complete automation, an intermediate
+step to automating this task will be the use of models as
+triage tools to complement radiologist expertise. Our focus
+in this work is to give theoretically sound approaches for
+machine learning models that can either predict or defer
+the decision to a downstream expert to complement and
+augment their capabilities.
+The learned model should adapt to the underlying human
+expert in order to achieve better performance than deploy-
+ing the model or expert individually. In situations where
+we have limited data or model capacity, the gains from al-
+lowing the model to focus on regions where the expert is
+less accurate are expected to be more signiﬁcant. However,
+even when data or model capacity are not concerns, the
+expert may have access to side-information unavailable to
+the learner due to privacy concerns for example, the hard
+task is then to identify when we should defer without having
+access to this side-information. We will only assume in this
+work that we are allowed access to samples of the experts
+decisions or to costs of deferring, we believe that this is a
+reasonable assumption that can be achieved in practical set-
+tings. Inspired by the literature on rejection learning (Cortes
+et al., 2016b), our approach will be to learn two functions:
+a classiﬁer that can predict the target and a rejector which
+decides whether the classiﬁer or the expert should predict.
+We start by formulating a natural loss function for the com-
+bined machine-expert system in section 3 and show a re-
+duction from the expert deferral setting to cost sensitive
+learning. With this reduction in hand, we are able to give a
+novel convex surrogate loss that upper bounds our system
+loss and that is furthermore consistent in section 4. This
+surrogate loss settles the open problem posed by Ni et al.
+(2019) for ﬁnding a consistent loss for multiclass rejection
+learning. Our proposed surrogate loss and approach re-
+quires only adding an additional output layer to existing
+model architectures and changing the loss function, hence
+it necessitates minimal to no added computational costs.
+In section 5, we show the limitations of approaches in the
+literature from a consistency point-of-view and then provide
+generalization bounds for minimizing the empirical loss. To
+show the efﬁcacy of our approach, we give experimental
+evidence on image classiﬁcation datasets CIFAR-10 and
+CIFAR-100 using synthetic and human experts based on
+CIFAR10H (Peterson et al., 2019), on a hate speech and
+Consistent Estimators for Learning to Defer to an Expert
+offensive language detection task (Davidson et al., 2017),
+and on classiﬁcation of chest X-rays with synthetic experts
+in section 6. To summarize, the contributions of this paper
+are the following:
+• We formalize the expert deferral setup and analyze it
+theoretically giving a generalization bound for solving
+the empirical problem.
+• We propose a novel convex consistent surrogate loss
+LCE (6) for expert deferral easily integrated into cur-
+rent learning pipelines.
+• We provide a detailed experimental evaluation of our
+method and baselines from the literature on image and
+text classiﬁcation tasks.
+2. Related Work
+Learning with a reject option, rejection learning, has long
+been studied starting with Chow (1970) who investigated the
+trade-off between accuracy and the rejection rate. The frame-
+work of rejection learning assumes a constant cost c of defer-
+ring and hence the problem becomes to predict only if one is
+1 −c conﬁdent. Numerous works have proposed surrogate
+losses and uncertainty estimation methods to solve the prob-
+lem (Bartlett & Wegkamp, 2008; Ramaswamy et al., 2018;
+Ni et al., 2019; Jiang et al., 2018). Cortes et al. (2016b;a)
+proposed a different approach by learning two functions: a
+classiﬁer and a rejection function and analyzed the approach
+giving a kernel based algorithm in the binary setting. Ni
+et al. (2019) tried to extend their approach to the multiclass
+setting but failed to give a consistent surrogate loss and
+hence resorted to conﬁdence based methods.
+Recent work has started to explore models that defer to
+downstream experts, Madras et al. (2018) considers an iden-
+tical framework to the one considered here however their
+approach does not allow the model to adapt to the underly-
+ing expert and the loss used is not consistent and requires an
+uncertainty estimate of the expert decisions. On the other
+hand, De et al. (2019) gives an approximate procedure to
+learn a linear model that picks a subset of the training data
+on which to defer and uses a nearest neighbor algorithm to
+defer on new examples, the approach used is only feasible
+for small dataset sizes and does not generalize beyond ridge
+regression. Raghu et al. (2019a) considers binary classi-
+ﬁcation with expert deferral, their approach is to learn a
+classiﬁer ignoring the expert and obtain uncertainty esti-
+mates for both the expert and classiﬁer and then defer based
+on which is higher, we detail the limitations of this approach
+in section 5. Concurrent work (Wilder et al., 2020) learns
+a model with the mixtures of expert loss ﬁrst introduced in
+(Madras et al., 2018) and defers based on estimated model
+and expert conﬁdence as in Raghu et al. (2019a). Work on
+AI-assisted decision making has focused on the reverse set-
+ting considered here: the expert chooses to accept or reject
+the decision of the classiﬁer instead of a learned rejector
+(Bansal et al., 2019; 2020). Additionally, the fairness in
+machine learning community has started to consider the fair-
+ness impact of having downstream decision makers (Madras
+et al., 2018; Canetti et al., 2019; Green & Chen, 2019a;
+Dwork & Ilvento, 2018) but in slightly different frameworks
+than the ones considered here and work has started to con-
+sider deferring in reinforcement learning (Meresht et al.,
+2020).
+A related framework to our setting is selective classiﬁca-
+tion (El-Yaniv & Wiener, 2010) where instead of setting
+a cost for rejecting to predict one sets a constraint on the
+probability of rejection; here is no assumed downstream
+expert. Approaches range from deferring based on conﬁ-
+dence scores (Geifman & El-Yaniv, 2017), learning a deep
+network with two heads, one for predicting and the other
+for deferring (Geifman & El-Yaniv, 2019) and learning with
+portfolio theory inspired loss functions (Ziyin et al., 2019).
+Finally, our work bears resemblance to active learning with
+weak (the expert) and strong labelers (the ground truth)
+(Zhang & Chaudhuri, 2015).
+3. Problem Formulation
+We are interested in predicting a target Y
+∈
+Y
+=
+{1, · · · , K} based on covariates X ∈X where X, Y ∼P.
+We assume that we have query access to an expert M that
+has access to a domain Z that may contain additional infor-
+mation than X to classify instances according to the target
+Y. Querying the expert implies deferring the decision which
+incurs a cost lexp(x, y, m) that depends on the target y, co-
+variate x and the expert’s prediction m. On the other hand,
+predicting without querying the expert implies that a clas-
+siﬁer makes the ﬁnal decision and incurs a cost l(x, y, ˆy)
+where ˆy is the prediction of the classiﬁer. Our goal is to
+build a predictor ˆY : X →Y ∪{⊥} that can either predict
+or defer the decision to the expert denoted by ⊥. Our strat-
+egy for learning the predictor ˆY will be to learn two separate
+functions h : X →Y (classiﬁer) and r : X →{0, 1} (rejec-
+tor). We can now formulate a natural system loss function
+L for the system consisting of the classiﬁer in conjunction
+with the expert:
+L(h, r) = E(x,y)∼P,m∼M|(x,y) [ l(x, y, h(x))
+|
+{z
+}
+classiﬁer cost
+Ir(X)=0
+| {z }
+predict
+(1)
++
+expert cost
+z
+}|
+{
+lexp(x, y, m)
+defer
+z }| {
+Ir(x)=1 ]
+The above formulation is a generalization of the learning
+with rejection framework studied by Cortes et al. (2016b)
+Consistent Estimators for Learning to Defer to an Expert
+as by setting lexp(x, y, m) = c for a constant c > 0 the
+two objectives coincide. In Madras et al. (2018), the loss
+proposed assumes that the classiﬁer and expert costs are the
+logistic loss between the target and their predictions in the
+binary target setting.
+While our treatment extends to general forms of expert
+and classiﬁer costs, we will pay particular attention in our
+theoretical analysis when the costs are the misclassiﬁcation
+error with the target. Formally, we deﬁne a 0−1 loss version
+of our system loss:
+L0−1(h, r) =
+(2)
+E(x,y)∼P,m∼M|(x,y) [ Ih(x)̸=yIr(x)=0 + Im̸=yIr(x)=1 ]
+One may also assume a constant additive cost function c(x)
+for querying the expert depending on the instance x making
+lexp(x, y, m) = Im̸=y + c(x); such additive costs can be
+easily integrated into our analysis.
+Our approach will be to cast this problem as a cost sen-
+sitive learning problem over an augmented label space
+that includes the action of deferral. Let the random costs
+c ∈RK+1
++
+where for i ∈[K], c(i) is the i′th component of
+c represents the cost of predicting i ∈Y while c[K +1] rep-
+resents the cost of deferring to the expert. The goal of this
+setup is to learn a predictor h : X →[K+1] minimizing the
+cost sensitive loss eL(h) := E[c(h(x))]. For example, giv-
+ing an instance (x, y, m), our loss (1) is obtained by setting
+c(i) = l(x, y, i) for i ∈[K] and c(K + 1) = lexp(x, y, m).
+For the majority of this paper we assume access to samples
+S = {(xi, yi, mi)}n
+i=1 where {(xi, yi)}n
+i=1 are drawn i.i.d.
+from the unknown distribution P and mi is drawn from the
+distribution of the random variable M|(X = xi, Y = yi)
+and access to the realizations of lexp and l when required .
+4. Proposed Surrogate Loss
+It is clear that the system loss function (1) is not only non-
+convex but also computationally hard to optimize. The
+usual approach in machine learning is to formulate upper
+bounding convex surrogate loss functions and optimize them
+in hopes of approximating the minimizers of the original loss
+(Bartlett et al., 2006). Work from rejection learning (Cortes
+et al., 2016b; Ni et al., 2019) suggested learning two separate
+functions h and r and provided consistent convex surrogate
+loss functions only for the binary setting. We extend their
+proposed surrogates for our expert deferral setting for binary
+labels with slight modiﬁcations in appendix C. Consistency
+is used to prove that a proposed surrogate loss is a good
+candidate and is often treated as a necessary condition. The
+issue with the proposed surrogates in (Cortes et al., 2016b)
+for rejection learning is that when extended to the multiclass
+setting, it is impossible for them to be consistent as was
+shown by (Ni et al., 2019). Aside the consistency issue, Ni
+et al. (2019) found that simple baselines can outperform the
+proposed losses in practice.
+The construction of our proposed surrogate loss for the
+multiclass expert deferral setting will be motivated via two
+ways, the ﬁrst is through a novel reduction to cost sensitive
+learning and the second is inspired by the Bayes minimizer
+for the 0−1 system loss (3). Let gi : X →R for i ∈[K +1]
+and deﬁne h(x) = arg maxi∈[K+1] gi, motivated by the
+success of the cross entropy loss, our proposed surrogate for
+cost-sensitive learning eLCE takes the following form:
+eLCE(g1, · · · , gK+1, x, c(1), · · · , c(K + 1)) =
+(3)
+−
+K+1
+X
+i=1
+( max
+j∈[K+1] c(j) −c(i)) log
+
+exp(gi(x))
+P
+k exp(gk(x))
+
+The loss eLCE is a surrogate loss for cost sensitive learn-
+ing that generalizes the cross entropy loss when the costs
+correspond to multiclass misclassiﬁcation. The following
+proposition shows that the loss is consistent, meaning it’s
+minimizer over all measurable functions agrees with the
+Bayes solution.
+Proposition 1. eLCE is convex in g and is a consistent loss
+function for eL:
+let eg = arg infg E
+h
+eLCE(g, c)|X = x
+i
+, then:
+arg maxi∈[K+1] egi = arg mini∈[K+1] E[c(i)|X = x]
+Proof of Proposition 1 can be found in Appendix C; eLCE is
+a simpler consistent alternative to the surrogates derived in
+(Chen et al., 2019) for cost sensitive learning.
+Now we consider when the system loss function is L0−1 (3),
+our approach is to treat deferral as a new class and construct
+a new label space Y⊥= Y ∪⊥and a corresponding distribu-
+tion P(Y ⊥|X = x) such that minimizing the misclassiﬁca-
+tion loss on this new space will be equivalent to minimizing
+our system loss L0−1. The Bayes optimal classiﬁer on
+Y⊥is clearly h⊥= arg maxy⊥∈Y⊥P(Y⊥= y⊥|X = x),
+and we need it to match the decision of the Bayes solution
+hB, rB of L0−1 (3):
+hB, rB = arg inf
+h,r L0−1(h, r)
+(4)
+where the inﬁmum is over all measurable functions. Denote
+by ηy(x) = P(Y = y|X = x), it is clear that for x ∈X the
+best classiﬁer is the same as the Bayes solution for standard
+classiﬁcation since if we don’t defer we have to do our
+best. Now we only reject the classiﬁer if it’s expected error
+is higher than the expected error of the expert which we
+formalize in the below proposition:
+Proposition 2. The minimizers of the loss L0−1 (3) are
+Consistent Estimators for Learning to Defer to an Expert
+deﬁned point-wise for all x ∈X as:
+hB(x) = arg max
+y∈Y ηy(x)
+rB(x) = Imaxy∈Y ηy(x)≤P(Y =M|X=x)
+(5)
+Proof of the above proposition can be found in Appendix C
+and equation (5) give us sufﬁcient conditions for consistency
+to check our proposed loss. Let gy : X →R for y ∈Y and
+deﬁne h(x) = arg maxy∈Y gy, similarly let g⊥: X →R
+and deﬁne r(x) = Imaxy∈Y gy(x)≤g⊥the proposed surrogate
+loss for L0−1 (1) in the multiclass setting is then:
+LCE(h, r, x, y, m) = −log
+ 
+exp(gy(x))
+P
+y′∈Y∪⊥exp(gy′(x))
+!
+(6)
+−Im=y log
+ 
+exp(g⊥(x))
+P
+y′∈Y∪⊥exp(gy′(x))
+!
+The proposed surrogate LCE is in fact consistent and upper
+bounds L0−1 as the following theorem demonstrates.
+Theorem 1. The loss LCE is convex in g, upper bounds
+L0−1 and is consistent: infh,r Ex,y,m[LCE(h, r, x, y, m)]
+is attained at (h∗
+CE, r∗
+CE) such that hB(x) = h∗
+CE(x) and
+rB(x) = r∗
+CE(x) for all x ∈X.
+Proof of Theorem 1 can be found in Appendix C. When
+the costs c(1), · · · , c(K + 1) are in accordance with our
+expert deferral setting the loss eLCE reduces to LCE. Now
+stepping back and looking more closely at our loss LCE, we
+can see that the loss on examples where the expert makes a
+mistake becomes the cross entropy loss with the target. On
+the other hand, when the expert agrees with the target, the
+learner faces two opposing decisions whether to defer or
+predict the target. We can encourage or hinder the action of
+deferral by modifying the loss with an additional parameter
+α ∈R+ as Lα
+CE(h, r, x, y, m):
+−(α · Im=y + Im̸=y) log
+ 
+exp(gy(x))
+P
+y′∈Y∪⊥exp(gy′(x))
+!
+(7)
+−Im=y log
+ 
+exp(g⊥(x))
+P
+y′∈Y∪⊥exp(gy′(x))
+!
+Note that L1
+CE = LCE. The effect of α is to re-weight ex-
+amples where the expert is correct to discourage the learner
+of ﬁtting them and instead focus on examples where the
+expert makes a mistake. In practice, one would treat α as
+an additional hyperparameter to optimize for.
+5. Theoretical analysis
+In this section we focus on the zero-one system loss function
+L0−1 and try to understand previous proposed solutions
+Figure 1. Setting of two groups, red and blue, the task is binary
+classiﬁcation with labels {o, +}, the expert ﬁts the red majority
+group, hence the classiﬁer should attempt to ﬁt the blue group with
+the rejector (black line) separating the groups.
+in the literature in comparison with our method from a
+theoretical perspective.
+5.1. Failure of Conﬁdence Scores Method
+The form of the Bayes solution in Proposition 5 above sug-
+gests a very natural approach: 1) learn a classiﬁer minimiz-
+ing the misclassiﬁcation loss with the target and obtain conﬁ-
+dence scores for predictions, 2) obtain conﬁdence scores for
+expert agreement with the target, this can be done by learn-
+ing a model where the target is whether the expert agrees
+with the task label and extracting conﬁdence scores from
+this model (Raghu et al., 2019b), and ﬁnally 3) compare
+who between the classiﬁer and the expert is more conﬁdent
+and accordingly defer. We refer to this as the conﬁdence
+score method (Conﬁdence), this approach leads to a consis-
+tent estimator for both the rejector and classiﬁer and was
+proposed by Raghu et al. (2019a).
+In fact this is the standard approach in rejection learning
+(Bartlett & Wegkamp, 2008; Ramaswamy et al., 2018; Ni
+et al., 2019), a host of different methods exist for estimating
+a classiﬁer’s conﬁdence on new examples including trust
+scores (Jiang et al., 2018), Monte-Carlo dropout for neural
+networks (Gal & Ghahramani, 2016) among many others.
+However, the key pitfall of this method in the expert deferral
+setup it that it does not allow h to adapt to the expert’s
+strengths and weaknesses. When we restrict our search
+space to a limited class of functions H and R this approach
+can easily fail. We now give a toy example where learning
+the classiﬁer independently fails which motivates the need
+to jointly learn both the classiﬁer and rejector.
+Assume that there exists two sub-populations in the data
+Consistent Estimators for Learning to Defer to an Expert
+denoted A = 1 and A = 0 where P(A = 1) ≥P(A = 0)
+from which X ∈Rd is generated from and conditional on
+the target and population, X|(Y = y, A = 0) is normally
+distributed according to N(µy,0, Σ) and X|(Y = y, A = 1)
+consists of two clusters: cluster (1) is normally distributed
+but the means are not well separated and cluster (2) is only
+separable by a complex non-linear boundary; the data is il-
+lustrated in Figure 1. Finally we assume the expert to be able
+to perfectly classify group A = 1, on cluster (1) the expert
+is able to compute the complex nonlinear boundary and on
+cluster (2) the expert has side-information Z that allows him
+to separate the classes which is not possible from only X.
+We restrict our classiﬁer and rejector to be d−dimensional
+hyperplanes. If we start by learning h, then the resulting
+hyperplane will try to minimize the average error across
+both groups, this will likely result into a hyperplane that
+separates neither group as the data is not linearly separable,
+especially on group A = 1. If we assume that the boundary
+between the groups is linear as shown, then we can achieve
+the error of the Bayes solution within our hypothesis space:
+the optimal behavior in this setting is clearly to have h ﬁt
+group A = 0, note here the Bayes solution corresponds to a
+hyperplane via linear discriminant analysis for 2 classes on
+A = 0, and the rejector r separating the groups as illustrated
+in Figure 1. This example illustrates the complexities of this
+setting, due to model capacity there are signiﬁcant gains to
+be achieved from adapting to the expert by focusing only
+group A = 0. Setting aside model capacity, the nonlinear
+boundary of cluster (1) is sample intensive to learn as we
+only have access to ﬁnite data. Finally, cluster (2) cannot
+be separated even with inﬁnite data, the side information of
+the expert is needed, and so the hard task is to identify the
+region of cluster (2).
+5.2. Inconsistency of Mixtures of Experts Loss
+Note that the expert deferral setting considered here can be
+thought of as a hard mixture of two experts problem where
+one of the experts is ﬁxed (Jordan & Jacobs, 1994; Shazeer
+et al., 2017; Madras et al., 2018). This observation motivates
+a natural mixture of experts type loss, let gy : X →R for
+y ∈Y, h(x) = arg maxy∈Y gy, ri : X →R for i ∈{0, 1}
+and r(x) = arg maxi∈{0,1} ri(x), the mixture of experts
+loss is deﬁned as:
+Lmix(g, r, x, y, m) = −log
+ 
+exp(gy(x))
+P
+y′∈Y exp(gy′(x))
+!
+·
+(8)
+exp(r0(x))
+P
+i∈{0,1} exp(ri(x)) + Im̸=y
+exp(r1(x))
+P
+i∈{0,1} exp(ri(x))
+The above loss extends Madras et al. (2018) approach to
+the multiclass setting. As the next proposition demonstrates,
+Lmix is in general not classiﬁcation consistent.
+Proposition 3. Lmix is not a consistent surrogate loss func-
+tion for L (3).
+Proof of proposition (3) can be found in Appendix C. In our
+experimental section we show how the mismatch between
+the model and expert loss and their actual errors arising from
+the inconsistency causes this method to learn the incorrect
+behavior.
+5.3. Generalization Bound for Joint Learning
+In this subsection we analyze the sample complexity to
+jointly learn a rejector and classiﬁer. The goal is to ﬁnd the
+minimizer of the empirical version of our system loss when
+our hypothesis space for h and r are H, R respectively:
+ˆh∗, ˆr∗= arg
+min
+h∈H,r∈R LS
+0−1(h, r)
+(9)
+By going after the system loss directly, we can approximate
+the population minimizers h∗, r∗over H × R of L0−1 (3).
+The optimum h∗may not necessarily coincide with the
+optimal minimizer of the misclassiﬁcation loss with the
+target which is why learning jointly is critical. We now
+give a generalization bound for our empirical minimization
+procedure for a binary target.
+Theorem 2. For any expert M and data distribution P over
+X × Y, let 0 < δ < 1
+2, then with probability at least 1 −δ,
+the following holds for the empirical minimizers (ˆh∗, ˆr∗):
+L0−1(ˆh∗, ˆr∗) ≤L0−1(h∗, r∗) + Rn(H) + Rn(R) (10)
++ RnP(M̸=Y )/2(R) + 2
+s
+log 2
+δ
+2n
++ P(M̸ = Y )
+2
+exp
+
+−nP(M̸ = Y )
+8
+
+Proof of the above theorem can be found in Appendix C.
+We can see that the performance of our empirical minimizer
+is controlled by the Rademacher complexity Rn(R) and
+Rn(H) of both the classiﬁer and rejector model classes and
+the error of the expert. Note that when P(M̸ = Y ) = 0
+we recover the bound proved in Theorem 1 (Cortes et al.,
+2016b) for rejection learning when c = 0; this gives evi-
+dence that deferring to an expert is a more sample intensive
+problem then rejection learning. Both our loss LCE and the
+conﬁdence scores approach lead to consistent estimators,
+however, as we will later show in our experiments, one dif-
+ferentiating factor will be that of sample complexity. We can
+already see in the bound (10), that we pay the complexity
+of the rejector and classiﬁer model classes, however, our
+approach combines the rejector and classiﬁer in one model
+to avoid these added costs.
+Consistent Estimators for Learning to Defer to an Expert
+6. Experiments
+We provide code to reproduce our experiments 1. Additional
+experimental details and results are left to Appendix B.
+6.1. Synthetic Data
+As a ﬁrst toy example to showcase that our proposed loss
+Lα
+CE is able to adapt to the underlying expert behavior, we
+perform experiments in a Gaussian mixture setup akin to
+the example in section 5. The covariate space is X = Rd
+and target Y = {0, 1}, we assume that there exists two
+sub-populations in the data denoted A = 1 and A = 0.
+Furthermore, X|(Y = y, A = a) is normally distributed
+according to N(µy,a, Σy,a). The expert follows the Bayes
+solution for group A = 1 which here corresponds to a hy-
+perplane. Our hypothesis spaces H and R will be the set of
+all d−dimensional hyperplanes.
+Setup: We perform 200 trials where on each trial we gen-
+erate: random group proportions P(A = 1) ∼U(0, 1)
+ﬁxing P(Y = 1|A = a) = 0.5, random means and vari-
+ances for each Gaussian component X|Y = y, A = a ∼
+N(µy,a, Σy,a) where µy,a ∼U(0, 10)d and similarly for
+the diagonal components of Σy,a(i, i) ∼U(0, 10) keeping
+non-diagonal components 0 with dimension d = 10; we
+generate in total 1000 samples each for training and testing.
+We compare against oracle behavior and two baselines: 1)
+An oracle baseline (Oracle) that trains only on A = 0 data
+and trains the rejector to separate the groups with knowl-
+edge of group labels and 2) the conﬁdence score baseline
+(Conﬁdence) that trains a linear model on all the data and
+then trains a different linear model on all the data where
+labels are the expert’s agreement with the target and ﬁnally
+compares which of the two is more conﬁdent according to
+the probabilities assigned by the corresponding models and
+3) our implementation of the approach in (Madras et al.,
+2018) (MixOfExp).
+Results: We train a multiclass logistic regression model
+with our loss Lα
+CE with α ∈{0, 0.5, 1} and record in ta-
+ble 1 the difference in accuracy between our method and
+baselines for the best performing α. We can see that our
+method with α = 0 outperforms the conﬁdence baseline by
+6.39 on average in classiﬁcation accuracy and matches the
+oracle method with 0.22 positive difference which shows
+the success of our method.
+6.2. CIFAR-10
+As our ﬁrst real data experimental evaluation we conduct
+experiments on the celebrated CIFAR-10 image classiﬁca-
+tion dataset (Krizhevsky et al., 2009) consisting of 32 × 32
+color images drawn from 10 classes split into 50,000 train
+1https://github.com/clinicalml/learn-to-
+defer
+Table 1. Average difference in accuracy for our method compared
+to the baselines and a 95% conﬁdence interval for the average for
+the synthetic data experiment.
+DIFFERENCE IN SYSTEM ACCURACY
+AVERAGE
+95% INTERVAL
+L0
+CE-CONFIDENCE (RAGHU ET AL., 2019A)
+6.39
+[3.71,9.06]
+L0
+CE-ORACLE
+0.22
+[-1.71,2.15]
+L0
+CE- MIXOFEXP (MADRAS ET AL., 2018)
+2.01
+[0.14,4.06]
+and 10,000 test images.
+Synthetic Expert. We simulate multiple synthetic experts
+of varying competence in the following way: let k ∈[10],
+then if the image belongs to the ﬁrst k classes the expert
+predicts perfectly, otherwise the expert predicts uniformly
+over all classes. The classiﬁer and expert costs are assumed
+to be the misclassiﬁcation costs.
+Base Network. Our base network for classiﬁcation will be
+the Wide Residual Networks (WideResNets) (Zagoruyko &
+Komodakis, 2016) which with data augmentation and hyper-
+parameter tuning can achieve a 96.2% test accuracy. Since
+our goal is not to achieve better accuracies but to show the
+merit of our approach for a given ﬁxed model, we disadvan-
+tage the model by not using data augmentation and a smaller
+network size. The WideResNet with 28 layers minimizing
+the cross-entropy loss achieves 90.47% test accuracy with
+training until ﬁtting the data in 200 epochs; this will be our
+benchmark model. We use SGD with momentum and a
+cosine annealing learning rate schedule.
+Proposed Approach: Following section 4, we parameter-
+ize h and r (speciﬁcally g⊥) by a WideResNet with 11
+output units where the ﬁrst 10 units represent h and the
+11′th unit is g⊥and minimize the proposed surrogate Lα
+CE
+(6). We also experimented with having h be a WideResNet
+with 10 output units and g⊥a WideResNet with a single
+output unit and observed identical results. We show results
+for α ∈{0.5, 1}.
+Baselines: We compare against three baselines. The ﬁrst
+baseline trains the rejector to recognize if the image is in the
+ﬁrst k classes and accordingly defers, we call this baseline
+"LearnedOracle"; this rejector is a learned implementation
+of what the optimal rejector should do. The second baseline
+is the conﬁdence score method (Raghu et al., 2019a) and the
+third is the mixture-of-experts loss of (Madras et al., 2018),
+details of the implementation of this ﬁnal baseline are left
+to Appendix B.5.
+Results. In ﬁgure 2a we plot the accuracy of the combined
+algorithm and expert system versus k, the number of classes
+the expert can predict perfectly. We can see that the model
+trained with L0.5
+CE and L1
+CE outperforms the baselines by
+1.01% on average for the conﬁdence score baseline and by
+1.94 on average for LearnedOracle. To look more closely
+at the behavior of our method, we plot in ﬁgure 2b the
+Consistent Estimators for Learning to Defer to an Expert
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+k (classes expert can predict)
+System Accuracy
+LearnedOracle
+Conﬁdence
+L.5
+CE
+L1
+CE
+MixOfExp
+(a)
+0
+10
+20
+30
+40
+50
+60
+70
+80
+90 100
+88
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+Coverage (ratio of examples predicted)
+Classiﬁer accuracy on non-deferred set
+(b)
+Figure 2. Left ﬁgure shows overall system accuracy of our method and baselines (k is the number of classes the expert can predict) and
+right ﬁgure compares the accuracy on the non-deferred examples versus the coverage for every k
+accuracy on the non-deferred examples versus the coverage,
+the fraction of the examples non-deferred, for each k. We
+can see that that the model trained with L1
+CE dominates all
+other baselines giving better coverage and accuracy for the
+classiﬁer’s predictions. This gives evidence that our loss
+allows the model to only predict when it is highly conﬁdent.
+Why do we outperform the baselines?
+1) Sample complexity: The Conﬁdence baseline (Raghu
+et al., 2019a) requires training two networks while ours only
+requires one, when data is limited our approach gives sig-
+niﬁcant improvements in comparison. We experiment with
+increasing training set sizes while keeping the test set ﬁxed
+and training our model with L1
+CE and the Conﬁdence base-
+line. With expert k = 5, when data is limited our approach
+massively improves on the baseline, for example with 2000
+training points, Conﬁdence achieves 62.33% accuracy while
+our method achieves 70.12%, a 7.89 point increase.
+2) Taking into consideration both expert and model con-
+ﬁdence: the LearnedOracle baseline ignores model conﬁ-
+dence entirely and only focuses on the region where the
+expert is correct. While this is the behavior of the Bayes
+classiﬁer in this setup, when dealing with a limited model
+class and limited data, this no longer is the correct behavior.
+For this reason, our model outperforms the LearnedOracle
+baseline.
+3) Consistency: the mixtures of experts loss of (Madras
+et al., 2018) fails in this setup and learns never to defer. The
+reason is that when training, the loss of the classiﬁer will
+converge to zero and validation classiﬁer accuracy will still
+improve in the mean-time, however the loss of the expert
+remains constant, thus we never defer.
+6.3. CIFAR10H and Limited Expert Data
+In the following experiments we assume access to fully la-
+beled data Sl = {(xi, yi, mi)}m
+i=1 and data without expert
+labels Su = {(xi, yi)}n
+i=m+1. The goal is to learn a classi-
+ﬁer h and rejector r from the two datasets Sl and Su.
+Data. To experiment in settings where we have limited
+expert data, we use the dataset CIFAR10H (Peterson et al.,
+2019) initially developed to improve model robustness.
+CIFAR10H contains for each data point in the CIFAR-10
+test set ﬁfty crowdworker annotations recorded as counts
+for each of the 10 classes. The training set of CIFAR-10
+will constitute Su, and we randomly split the test set in half
+where one half constitutes Sl and the other is for testing; we
+randomize the splitting over 10 trials.
+Expert. We simulate the behavior of an average human
+annotator by sampling from the class counts for each data
+point. The performance of our simulated expert has an
+average classiﬁcation accuracy of 95.22 with a standard
+deviation of 0.18 over 100 runs. The performance of the
+expert is non uniform over the classes, for example on the
+class cat the expert has 91.0% accuracy while on horse a
+97.8% accuracy.
+Proposed Approach. Our method will be to impute expert
+disagreement labels Iy̸=m on Su by learning a model that
+predicts whether the expert will err and obtain an imputed
+dataset ˆSu. We train using our loss LCE on ˆSu ∪Sl; we
+refer to our method as "LCE impute".
+Results. We compare against a conﬁdence score baseline
+where we train a classiﬁer on Su and then model the expert
+on Sl. Results are shown in table 2 and we can see that our
+method outperforms the conﬁdence method by 1.2 points
+on system accuracy and an impressive 3.1 on data points
+where the classiﬁer has to predict. To show the effect of
+imputing expert labels on Su, we train ﬁrst our model using
+Consistent Estimators for Learning to Defer to an Expert
+Table 2. Comparing our proposed methods on CIFAR10H and a
+baseline based on conﬁdence scores recording system accuracy,
+coverage and classiﬁer accuracy on non-deferred examples.
+METHOD
+SYSTEM
+COVERAGE
+CLASSIFIER
+LCE IMPUTE
+96.29±0.25
+51.67±1.46
+99.2 ± 0.08
+LCE 2-STEP
+96.03±0.21
+60.81±0.87
+98.11 ± 0.22
+CONFIDENCE (RAGHU ET AL., 2019A)
+95.09±0.40
+79.48±5.93
+96.09 ± 0.42
+LCE on Su and then ﬁne tune to learn deferral on Sl, we
+refer to this as "LCE 2-step".
+6.4. CheXpert
+Task. CheXpert is a large chest radiograph dataset that
+contains over 224 thousand images of 65,240 patients auto-
+matically labeled for the presence of 14 observations using
+radiology reports (Irvin et al., 2019). We focus here on
+the detection of only the 5 observations that make up the
+"competition tasks" (Irvin et al., 2019): Atelectasis, Car-
+diomegaly, Consolidation, Edema, and Pleural Effusion.
+This is a multi-task problem, we have 5 separate binary
+tasks, we will learn to defer on an individual task basis.
+Expert. We create a simulated expert as follows: if the
+chest X-ray contains support devices (the presence of sup-
+port devices is part of the label) then the expert is correct
+with probability p on all tasks independently and if the X-ray
+does not contain support devices, then the expert is correct
+with probability q.
+Data. We use the downsampled resolution version of CheX-
+pert (Irvin et al., 2019) and split the training data set with an
+80-10-10 split on a patient basis for training, validation and
+testing respectively, no patients are shared among the splits.
+Images are normalized and resized to be compatible with
+pre-trained ImageNet models, we use data augmentation
+in the form of random resized crops, horizontal ﬂips and
+random rotations of up to 15° while training.
+Baselines. We implement two baselines: a threshold conﬁ-
+dence baseline that learns a threshold to maximize system
+AU-ROC on just the conﬁdence of the classiﬁer model to
+defer (ModelConﬁdence), this is the post-hoc thresholding
+method in (Madras et al., 2018), and the Conﬁdence base-
+line (Raghu et al., 2019a). We use temperature scaling (Guo
+et al., 2017) to ensure calibration of all baselines on the
+validation set.
+Model.
+Following (Irvin et al., 2019), we use the
+DenseNet121 architecture for our model with pre-trained
+weights on ImageNet, the loss for the baseline models is
+the average of the binary cross entropy for each of the tasks.
+We train the baseline models using Adam for 4 epochs. For
+our approach we train for 3 epochs using the cross entropy
+loss and then train for one epoch using Lα
+CE with α chosen
+to maximize the area under the receiver operating charac-
+teristic curve (AU-ROC) of the combined system on the
+validation set for each of the 5 tasks (each task is treated
+separately).
+Experimental setup. In a clinical setting there might be a
+cost associated to querying a radiologist, this then imposes
+a constraint on how often we can query the radiologist i.e.
+our model’s coverage . We constrain our method and the
+baselines to achieve c% coverage for c ∈[100] to simulate
+the spectrum between complete automation and none.
+We achieve this for our method by ﬁrst sorting the test set
+based on g⊥(x)−max(g0(x), g1(x)) := q(x) across all pa-
+tients x in the test set, then to achieve coverage c, we deﬁne
+τ = q(xc) where q(xc) is the c’th percentile of the outputs
+q(x), then we let r(x) = 1 ⇐⇒q(x) ≥τ. The deﬁnition
+of τ ensures that we obtain exactly c% coverage. We do the
+this similarly for ModelConﬁdence and Conﬁdence.
+Results. In Figure 3a we plot the overall system (expert and
+algorithm combined) AU-ROC for each desired coverage
+for the methods and in Figure 3b we plot the overall system
+area under the precision-recall curve (AU-PR) versus the
+coverage; this is for the expert with q = 0.7 and p = 1.
+We can see that the curve for our method dominates the
+baselines over the entire coverage range for both AU-ROC
+and AU-PR, moreover the curves are concave and we can
+achieve higher performance by combining expert and al-
+gorithm than using both separately. Our method is able to
+achieve a higher maximum AU-ROC and AU-PR than both
+baselines: the difference between the maximum attainable
+AU-ROC of our method and Conﬁdence is 0.039, 0.026,
+0.018, 0.022 and 0.027 respectively for each of the ﬁve
+tasks.
+6.5. Hate Speech and Offensive Language Detection
+We conduct experiments on the dataset created by Davidson
+et al. (2017) consisting of 24,783 tweets annotated as hate
+speech, offensive language or neither.
+Expert. We create a synthetic expert that has differing error
+rates according to the demographic of the tweet’s author,
+using the probabilistic language model of (Blodgett et al.,
+2016) we predict that a tweet is in African-American En-
+glish (AAE) if the probability predicted by the model is
+higher than 0.5. Our expert model is as follows: if the
+tweet is in AAE then with probability p we predict the cor-
+rect label and otherwise predict uniformly at random. On
+the other hand if the tweet is not in AAE, we predict with
+probability q the correct label. We experiment with 3 dif-
+ferent expert probabilities for p and q: 1) a fair expert with
+{p = 0.9, q = 0.9}, 2) a biased expert towards AAE tweets
+{p = 0.75, q = 0.9} and 3) a biased expert towards non
+AAE tweets {p = 0.9, q = 0.75}.
+Our Approach. For our model we use the CNN developed
+in (Kim, 2014) for text classiﬁcation with 100 dimensional
+Glove embeddings (Pennington et al., 2014) and 300 ﬁlters
+Consistent Estimators for Learning to Defer to an Expert
+0.00
+0.25
+0.50
+0.75
+1.00
+Coverage
+0.70
+0.75
+0.80
+0.85
+0.90
+0.95
+AU-ROC
+Expert
+Classiﬁer
+Cardiomegaly
+ours α=0.1 0.930
+Conﬁdence 0.891
+ModelConﬁdence 0.869
+0.00
+0.25
+0.50
+0.75
+1.00
+Coverage
+Edema
+ours α=0.4 0.927
+Conﬁdence 0.901
+ModelConﬁdence 0.890
+0.00
+0.25
+0.50
+0.75
+1.00
+Coverage
+Consolidation
+ours α=0.2 0.908
+Conﬁdence 0.890
+ModelConﬁdence 0.866
+0.00
+0.25
+0.50
+0.75
+1.00
+Coverage
+Atelectasis
+ours α=0.1 0.907
+Conﬁdence 0.885
+ModelConﬁdence 0.872
+0.00
+0.25
+0.50
+0.75
+1.00
+Coverage
+Pleural Eﬀusion
+ours α=0.1 0.940
+Conﬁdence 0.913
+ModelConﬁdence 0.898
+(a) AU-ROC vs coverage for expert q = 0.7, p = 1, maximum AU-ROC is noted.
+0.00
+0.25
+0.50
+0.75
+1.00
+Coverage
+0.40
+0.45
+0.50
+0.55
+0.60
+0.65
+0.70
+0.75
+0.80
+AU-PR
+Cardiomegaly
+ours α=0.1 0.668
+Conﬁdence 0.668
+ModelConﬁdence 0.625
+0.00
+0.25
+0.50
+0.75
+1.00
+Coverage
+0.50
+0.55
+0.60
+0.65
+0.70
+0.75
+0.80
+0.85
+0.90
+Edema
+ours α=0.4 0.851
+Conﬁdence 0.831
+ModelConﬁdence 0.812
+0.00
+0.25
+0.50
+0.75
+1.00
+Coverage
+0.20
+0.25
+0.30
+0.35
+0.40
+0.45
+0.50
+0.55
+0.60
+Consolidation
+ours α=0.2 0.506
+Conﬁdence 0.502
+ModelConﬁdence 0.451
+0.00
+0.25
+0.50
+0.75
+1.00
+Coverage
+0.30
+0.35
+0.40
+0.45
+0.50
+0.55
+0.60
+0.65
+0.70
+Atelectasis
+ours α=0.1 0.688
+Conﬁdence 0.656
+ModelConﬁdence 0.601
+0.00
+0.25
+0.50
+0.75
+1.00
+Coverage
+0.60
+0.65
+0.70
+0.75
+0.80
+0.85
+0.90
+0.95
+1.00
+Pleural Eﬀusion
+ours α=0.1 0.911
+Conﬁdence 0.857
+ModelConﬁdence 0.828
+(b) AU-PR vs coverage for expert q = 0.7, p = 1, maximum AU-PR is noted.
+Figure 3. Plot of AU-ROC of the ROC curve (a) for each level of coverage and of the AU-PR (AP) (b) for each of the 5 tasks comparing
+our method with the baselines on the training derived test set for the toy expert with q = 0.7, p = 1. We report the maximum AU-ROC
+and AU-PR achieved on each task, error bars are standard deviations derived from 10 runs (averaging over the expert’s randomness).
+of sizes {3, 4, 5} using dropout. This CNN achieves a 89.5%
+average accuracy on the classiﬁcation task, comparable to
+the 91% achieved by (Davidson et al., 2017) with a feature
+heavy linear model.
+We randomly split the dataset with a 60, 10, 30% split into
+a training, validation and test set respectively; we repeat the
+experiments for 5 random splits. We used a grid search over
+the validation set to ﬁnd α.
+Results. We compare against two baselines: the ﬁrst is
+Conﬁdence, the second is an oracle baseline that trains ﬁrst
+a model on the classiﬁcation task and then implements the
+Bayes rejector rB(x) equipped with the knowledge of p, q
+and the tweet’s demographic group. Both our model trained
+with L1
+CE and the conﬁdence score baseline achieve similar
+accuracy and coverage with the oracle baseline perform-
+ing only slightly better across the three experts. For the
+AAE biased expert, our model trained with L1
+CE achieves
+92.91±0.17 system accuracy, Conﬁdence 92.42±0.40 and
+Oracle 93.22±0.11. This suggests that both approaches are
+performing optimally in this setting.
+Bias. A major concern in this setting is whether the end to
+end system consisting of the classiﬁer and expert is discrim-
+inatory. We deﬁne the discrimination of a predictor as the
+difference in the false positive rates of AAE tweets versus
+non AAE tweets where false positives indicate tweets that
+were ﬂagged as hate speech or offensive when they were
+not. Surprisingly, the conﬁdence score baseline with the
+fair expert doubles the discrimination of the overall system
+compared to the classiﬁer acting on it’s own: the classiﬁer
+has a discrimination of 0.226 , the fair expert 0.03 while
+the conﬁdence score baseline has a discrimination of 0.449.
+This again reiterates the established fact that fairness does
+not compose (Dwork & Ilvento, 2018). In fact, the end-to-
+end system can be less discriminatory even if the individual
+components are more discriminatory, for the second expert
+that has higher error rates on non AAE tweets with discrim-
+ination of 0.084, the discrimination of the conﬁdence score
+method reduces to 0.151.
+7. Conclusion
+In this work we explored a framework where the learning
+model can choose to defer to an expert or predict. We an-
+alyzed the framework theoretically and proposed a novel
+surrogate loss via a reduction to multiclass cost sensitive
+learning. We showcased on image and text classiﬁcations
+tasks the empirical beneﬁts of our method compared to the
+literature. We hope that our method will inspire machine
+learning practitioners to integrate downstream decision mak-
+ers into their learning algorithms.
+Consistent Estimators for Learning to Defer to an Expert
+Acknowledgements
+This work was supported by NSF CAREER award
+#1350965.
+References
+Bansal, G., Nushi, B., Kamar, E., Weld, D. S., Lasecki,
+W. S., and Horvitz, E. Updates in human-ai teams:
+Understanding and addressing the
+performance/compatibility tradeoff. In Proceedings of
+the AAAI Conference on Artiﬁcial Intelligence,
+volume 33, pp. 2429–2437, 2019.
+Bansal, G., Nushi, B., Kamar, E., Horvitz, E., and Weld,
+D. S. Optimizing ai for teamwork. arXiv preprint
+arXiv:2004.13102, 2020.
+Bartlett, P. L. and Wegkamp, M. H. Classiﬁcation with a
+reject option using a hinge loss. Journal of Machine
+Learning Research, 9(Aug):1823–1840, 2008.
+Bartlett, P. L., Jordan, M. I., and McAuliffe, J. D.
+Convexity, classiﬁcation, and risk bounds. Journal of the
+American Statistical Association, 101(473):138–156,
+2006.
+Blodgett, S. L., Green, L., and O’Connor, B. Demographic
+dialectal variation in social media: A case study of
+African-American English. In Proceedings of the 2016
+Conference on Empirical Methods in Natural Language
+Processing, pp. 1119–1130, Austin, Texas, November
+2016. Association for Computational Linguistics. doi:
+10.18653/v1/D16-1120. URL https:
+//www.aclweb.org/anthology/D16-1120.
+Canetti, R., Cohen, A., Dikkala, N., Ramnarayan, G.,
+Schefﬂer, S., and Smith, A. From soft classiﬁers to hard
+decisions: How fair can we be? In Proceedings of the
+Conference on Fairness, Accountability, and
+Transparency, pp. 309–318. ACM, 2019.
+Chen, M., Gummadi, R., Harris, C., and Schuurmans, D.
+Surrogate objectives for batch policy optimization in
+one-step decision making. In Advances in Neural
+Information Processing Systems, pp. 8825–8835, 2019.
+Chow, C. On optimum recognition error and reject tradeoff.
+IEEE Transactions on information theory, 16(1):41–46,
+1970.
+Cortes, C., DeSalvo, G., and Mohri, M. Boosting with
+abstention. In Advances in Neural Information
+Processing Systems, pp. 1660–1668, 2016a.
+Cortes, C., DeSalvo, G., and Mohri, M. Learning with
+rejection. In International Conference on Algorithmic
+Learning Theory, pp. 67–82. Springer, 2016b.
+Davidson, T., Warmsley, D., Macy, M., and Weber, I.
+Automated hate speech detection and the problem of
+offensive language. In Eleventh international aaai
+conference on web and social media, 2017.
+De, A., Koley, P., Ganguly, N., and Gomez-Rodriguez, M.
+Regression under human assistance. arXiv preprint
+arXiv:1909.02963, 2019.
+DeSalvo, G., Mohri, M., and Syed, U. Learning with deep
+cascades. In International Conference on Algorithmic
+Learning Theory, pp. 254–269. Springer, 2015.
+Dwork, C. and Ilvento, C. Fairness under composition.
+arXiv preprint arXiv:1806.06122, 2018.
+El-Yaniv, R. and Wiener, Y. On the foundations of
+noise-free selective classiﬁcation. Journal of Machine
+Learning Research, 11(May):1605–1641, 2010.
+Friedman, J., Hastie, T., and Tibshirani, R. The elements of
+statistical learning, volume 1. Springer series in
+statistics New York, 2001.
+Futoma, J., Hariharan, S., Heller, K., Sendak, M., Brajer, N.,
+Clement, M., Bedoya, A., and O’Brien, C. An improved
+multi-output gaussian process rnn with real-time
+validation for early sepsis detection. In Machine
+Learning for Healthcare Conference, pp. 243–254, 2017.
+Gal, Y. and Ghahramani, Z. Dropout as a bayesian
+approximation: Representing model uncertainty in deep
+learning. In international conference on machine
+learning, pp. 1050–1059, 2016.
+Geifman, Y. and El-Yaniv, R. Selective classiﬁcation for
+deep neural networks. In Advances in neural information
+processing systems, pp. 4878–4887, 2017.
+Geifman, Y. and El-Yaniv, R. Selectivenet: A deep neural
+network with an integrated reject option. arXiv preprint
+arXiv:1901.09192, 2019.
+Green, B. and Chen, Y. Disparate interactions: An
+algorithm-in-the-loop analysis of fairness in risk
+assessments. In Proceedings of the Conference on
+Fairness, Accountability, and Transparency, pp. 90–99.
+ACM, 2019a.
+Green, B. and Chen, Y. The principles and limits of
+algorithm-in-the-loop decision making. Proceedings of
+the ACM on Human-Computer Interaction, 3(CSCW):
+1–24, 2019b.
+Guo, C., Pleiss, G., Sun, Y., and Weinberger, K. Q. On
+calibration of modern neural networks. In Proceedings of
+the 34th International Conference on Machine
+Learning-Volume 70, pp. 1321–1330. JMLR. org, 2017.
+Consistent Estimators for Learning to Defer to an Expert
+Hamid, K., Asif, A., Abbasi, W., Sabih, D., et al. Machine
+learning with abstention for automated liver disease
+diagnosis. In 2017 International Conference on
+Frontiers of Information Technology (FIT), pp. 356–361.
+IEEE, 2017.
+Irvin, J., Rajpurkar, P., Ko, M., Yu, Y., Ciurea-Ilcus, S.,
+Chute, C., Marklund, H., Haghgoo, B., Ball, R.,
+Shpanskaya, K., et al. Chexpert: A large chest
+radiograph dataset with uncertainty labels and expert
+comparison. In Proceedings of the AAAI Conference on
+Artiﬁcial Intelligence, volume 33, pp. 590–597, 2019.
+Jang, E., Gu, S., and Poole, B. Categorical
+reparameterization with gumbel-softmax. arXiv preprint
+arXiv:1611.01144, 2016.
+Jhaver, S., Birman, I., Gilbert, E., and Bruckman, A.
+Human-machine collaboration for content regulation:
+The case of reddit automoderator. ACM Transactions on
+Computer-Human Interaction (TOCHI), 26(5):1–35,
+2019.
+Jiang, H., Kim, B., Guan, M., and Gupta, M. To trust or not
+to trust a classiﬁer. In Advances in neural information
+processing systems, pp. 5541–5552, 2018.
+Jordan, M. I. and Jacobs, R. A. Hierarchical mixtures of
+experts and the em algorithm. Neural computation, 6(2):
+181–214, 1994.
+Kim, Y. Convolutional neural networks for sentence
+classiﬁcation. arXiv preprint arXiv:1408.5882, 2014.
+Kolesnikov, A., Beyer, L., Zhai, X., Puigcerver, J., Yung, J.,
+Gelly, S., and Houlsby, N. Large scale learning of
+general visual representations for transfer. arXiv preprint
+arXiv:1912.11370, 2019.
+Krizhevsky, A., Hinton, G., et al. Learning multiple layers
+of features from tiny images. Citeseer, 2009.
+Link, D., Hellingrath, B., and Ling, J. A human-is-the-loop
+approach for semi-automated content moderation. In
+ISCRAM, 2016.
+Loshchilov, I. and Hutter, F. Sgdr: Stochastic gradient
+descent with warm restarts. arXiv preprint
+arXiv:1608.03983, 2016.
+Maddison, C. J., Mnih, A., and Teh, Y. W. The concrete
+distribution: A continuous relaxation of discrete random
+variables. arXiv preprint arXiv:1611.00712, 2016.
+Madras, D., Pitassi, T., and Zemel, R. Predict responsibly:
+Improving fairness and accuracy by learning to defer. In
+Advances in Neural Information Processing Systems, pp.
+6150–6160, 2018.
+Meresht, V. B., De, A., Singla, A., and Gomez-Rodriguez,
+M. Learning to switch between machines and humans.
+arXiv preprint arXiv:2002.04258, 2020.
+Mohri, M., Rostamizadeh, A., and Talwalkar, A.
+Foundations of machine learning. MIT press, 2018.
+Ni, C., Charoenphakdee, N., Honda, J., and Sugiyama, M.
+On possibility and impossibility of multiclass
+classiﬁcation with rejection. arXiv preprint
+arXiv:1901.10655, 2019.
+Pennington, J., Socher, R., and Manning, C. D. Glove:
+Global vectors for word representation. In Proceedings
+of the 2014 conference on empirical methods in natural
+language processing (EMNLP), pp. 1532–1543, 2014.
+Peterson, J. C., Battleday, R. M., Grifﬁths, T. L., and
+Russakovsky, O. Human uncertainty makes classiﬁcation
+more robust. In Proceedings of the IEEE International
+Conference on Computer Vision, pp. 9617–9626, 2019.
+Raghu, M., Blumer, K., Corrado, G., Kleinberg, J.,
+Obermeyer, Z., and Mullainathan, S. The algorithmic
+automation problem: Prediction, triage, and human
+effort. arXiv preprint arXiv:1903.12220, 2019a.
+Raghu, M., Blumer, K., Sayres, R., Obermeyer, Z.,
+Kleinberg, B., Mullainathan, S., and Kleinberg, J. Direct
+uncertainty prediction for medical second opinions. In
+International Conference on Machine Learning, pp.
+5281–5290, 2019b.
+Ramaswamy, H. G., Tewari, A., Agarwal, S., et al.
+Consistent algorithms for multiclass classiﬁcation with
+an abstain option. Electronic Journal of Statistics, 12(1):
+530–554, 2018.
+Shazeer, N., Mirhoseini, A., Maziarz, K., Davis, A., Le, Q.,
+Hinton, G., and Dean, J. Outrageously large neural
+networks: The sparsely-gated mixture-of-experts layer.
+arXiv preprint arXiv:1701.06538, 2017.
+Vincent, J. Ai won’t relieve the misery of facebook’s
+human moderators.
+https://www.theverge.com/2019/2/27/
+18242724/facebook-moderation-ai-
+artificial-intelligence-platforms,
+February 2019.
+Wilder, B., Horvitz, E., and Kamar, E. Learning to
+complement humans. arXiv preprint arXiv:2005.00582,
+2020.
+Zagoruyko, S. and Komodakis, N. Wide residual networks.
+arXiv preprint arXiv:1605.07146, 2016.
+Consistent Estimators for Learning to Defer to an Expert
+Zhang, C. and Chaudhuri, K. Active learning from weak
+and strong labelers. In Advances in Neural Information
+Processing Systems, pp. 703–711, 2015.
+Ziyin, L., Wang, Z., Liang, P. P., Salakhutdinov, R.,
+Morency, L.-P., and Ueda, M. Deep gamblers: Learning
+to abstain with portfolio theory. arXiv preprint
+arXiv:1907.00208, 2019.

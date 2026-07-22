@@ -1,0 +1,103 @@
+/* Analysis terminal — a professional analysis workspace, not a hacker-terminal imitation.
+   No scanlines, no all-green text, no flicker. Restrained mono type, calm status colors,
+   clear event-kind hierarchy. Depends on verdict.css tokens. */
+
+.term {
+  display: flex; flex-direction: column; min-height: 0;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r3);
+  overflow: hidden; box-shadow: var(--shadow-1);
+}
+
+/* ---- header ----------------------------------------------------------------------- */
+.term-head { border-bottom: 1px solid var(--line); padding: 12px 14px 0; background: color-mix(in srgb, var(--panel) 84%, var(--surface-2)); }
+.term-head-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.term-file { display: flex; align-items: center; gap: 8px; font-weight: 650; font-size: 14px; min-width: 0; }
+.term-file svg { color: var(--muted); flex: none; }
+.term-file .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.term-status {
+  display: inline-flex; align-items: center; gap: 6px; font: 650 11px/1 var(--font-mono);
+  letter-spacing: .05em; padding: 4px 9px; border-radius: 999px; border: 1px solid;
+}
+.term-status[data-state="RUNNING"] { color: var(--accent); background: var(--accent-bg); border-color: var(--accent-line); }
+.term-status[data-state="COMPLETED"] { color: var(--accept); background: var(--accept-bg); border-color: var(--accept); }
+.term-status[data-state="PARTIAL"] { color: var(--route); background: var(--route-bg); border-color: var(--route); }
+.term-status[data-state="FAILED"] { color: var(--warn); background: var(--warn-bg); border-color: var(--warn); }
+.term-status[data-state="QUEUED"] { color: var(--muted); background: var(--surface-2); border-color: var(--line-strong); }
+.term-head-spacer { flex: 1 1 auto; }
+.term-actions { display: flex; align-items: center; gap: 4px; }
+
+.term-meta { display: flex; flex-wrap: wrap; gap: 4px 18px; padding: 9px 0 11px; font-size: 12px; color: var(--muted); }
+.term-meta b { color: var(--ink-2); font-weight: 600; }
+.term-meta .v-mono { color: var(--ink-2); }
+
+/* progress: labeled stage rail + a burn bar */
+.term-progress { padding: 0 0 11px; }
+.term-progress-bar { height: 5px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
+.term-progress-fill { height: 100%; width: 0; background: var(--accent); transition: width var(--dur-3) var(--ease); }
+.term-progress-fill[data-state="COMPLETED"] { background: var(--accept); }
+.term-progress-fill[data-state="PARTIAL"] { background: var(--route); }
+.term-progress-fill[data-state="FAILED"] { background: var(--warn); }
+.term-stage-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 5px; }
+.term-stage-label .cur { color: var(--ink-2); font-weight: 600; }
+
+/* ---- log -------------------------------------------------------------------------- */
+.term-log {
+  flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; min-height: 220px; max-height: 460px;
+  padding: 8px 0; scroll-behavior: smooth; position: relative;
+  font-family: var(--font-mono); font-size: 12.5px; line-height: 1.5;
+}
+.term-row {
+  display: grid; grid-template-columns: 62px 20px 1fr; gap: 8px; align-items: start;
+  padding: 3px 14px; border-left: 2px solid transparent;
+}
+.term-row .t { color: var(--faint); font-size: 11px; text-align: right; padding-top: 1px; font-variant-numeric: tabular-nums; }
+.term-row .ic { display: grid; place-items: center; padding-top: 1px; }
+.term-row .msg { color: var(--ink-2); word-break: break-word; }
+.term-row .stage-tag {
+  font-size: 9.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--faint);
+  margin-right: 6px;
+}
+.term-row .msg .field { color: var(--ink); font-weight: 600; }
+
+.term-row.k-system { color: var(--muted); } .term-row.k-system .ic { color: var(--muted); }
+.term-row.k-file .ic { color: var(--absent); }
+.term-row.k-agent .ic { color: var(--contra); }
+.term-row.k-info .ic { color: var(--info); }
+.term-row.k-success .ic { color: var(--accept); }
+.term-row.k-success { background: color-mix(in srgb, var(--accept-bg) 30%, transparent); }
+.term-row.k-warning { border-left-color: var(--route); background: color-mix(in srgb, var(--route-bg) 34%, transparent); }
+.term-row.k-warning .ic { color: var(--route); }
+.term-row.k-error { border-left-color: var(--warn); background: color-mix(in srgb, var(--warn-bg) 42%, transparent); }
+.term-row.k-error .ic { color: var(--warn); }
+.term-row.k-error .msg { color: var(--warn); }
+.term-row.k-finding { border-left-color: var(--sev-high); background: color-mix(in srgb, var(--sev-high-bg) 26%, transparent); }
+.term-row.k-finding .ic { color: var(--sev-high); }
+.term-row .sev { font-size: 9.5px; font-weight: 700; letter-spacing: .05em; padding: 0 5px; border-radius: 4px; margin-left: 6px; }
+
+.term-row-appear { animation: term-in var(--dur-2) var(--ease) both; }
+@keyframes term-in { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
+
+.term-caret { display: inline-block; width: 7px; height: 13px; background: var(--accent); margin-left: 2px; vertical-align: text-bottom; animation: term-blink 1.1s steps(2) infinite; }
+@keyframes term-blink { 50% { opacity: 0; } }
+
+/* jump-to-latest pill appears when the user has scrolled away from the tail */
+.term-jump {
+  position: absolute; right: 16px; bottom: 12px; display: inline-flex; align-items: center; gap: 6px;
+  font: 600 11.5px var(--font-ui); padding: 6px 11px; border-radius: 999px;
+  background: var(--accent); color: var(--accent-ink); border: none; cursor: pointer;
+  box-shadow: var(--shadow-2); opacity: 0; transform: translateY(6px); pointer-events: none;
+  transition: opacity var(--dur-2) var(--ease), transform var(--dur-2) var(--ease);
+}
+.term-jump.show { opacity: 1; transform: none; pointer-events: auto; }
+
+.term-foot { border-top: 1px solid var(--line); padding: 7px 14px; display: flex; align-items: center; gap: 10px; font-size: 11.5px; color: var(--muted); }
+.term-foot .count { font-variant-numeric: tabular-nums; }
+.term-foot .live { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; }
+
+.term-state { display: grid; place-items: center; min-height: 260px; }
+
+@media (max-width: 720px) {
+  .term-log { max-height: 320px; }
+  .term-row { grid-template-columns: 20px 1fr; }
+  .term-row .t { display: none; }
+}

@@ -1,0 +1,1760 @@
+Extraction Synthesis: Six Papers to a Calibrated
+Abstention Agent for SMB Credit Underwriting
+Consolidated formulations, methodologies, validation results, and structural
+conflicts
+15 July 2026
+Contents
+Papers covered
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+1
+Track 1 — Selective Prediction & Learning to Defer
+3
+1A. Geifman & El-Yaniv — Selective Classification for Deep Neural Networks . . . . .
+3
+1B. Mozannar & Sontag — Consistent Estimators for Learning to Defer to an Expert
+6
+Track 2 — Calibration Under Distribution Shift
+10
+2A. Gibbs & Candès — Adaptive Conformal Inference Under Distribution Shift . . . .
+10
+2B. Kamath, Jia & Liang — Selective Question Answering under Domain Shift . . . .
+16
+Track 3 — Uncertainty Quantification & Factuality for LLMs
+22
+Mohri & Hashimoto — Language Models with Conformal Factuality Guarantees . . .
+22
+Track 5 — Financial Document & Transaction Fraud Detection
+27
+Beneish — The Detection of Earnings Manipulation . . . . . . . . . . . . . . . . . . .
+27
+Cross-Cutting Analysis: What Composes, What Conflicts
+31
+Composes cleanly . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+31
+Conflicts and unresolved gaps — state these, do not bury them
+. . . . . . . . . . . .
+31
+Highest-Value Novel Angles, Ranked by Defensibility . . . . . . . . . . . . . . . . . .
+32
+Scope and reading note.
+This document consolidates every formulation, algorithm,
+experimental result, and stated limitation from the six supplied papers that bears on the
+Calibrated Abstention Agent project. It is organized by the research tracks defined in the
+project brief.
+Formulas are transcribed from the source materials. Where a paper’s result does not sur-
+vive contact with the project architecture, this is stated explicitly rather than presented
+as support. Sections marked with a flag identify direct conflicts between a cited paper
+and the current design; these are the highest-value content in the document and should
+not be skimmed.
+Papers covered
+Short name
+Full citation
+Primary track
+Geifman & El-Yaniv 2017
+Selective Classification for
+Deep Neural Networks,
+NeurIPS 2017
+1
+1
+Calibrated Abstention Agent — Research Extraction Synthesis
+Short name
+Full citation
+Primary track
+Mozannar & Sontag 2020
+Consistent Estimators for
+Learning to Defer to an
+Expert, ICML 2020
+1, 7
+Gibbs & Candès 2021
+Adaptive Conformal
+Inference Under Distribution
+Shift, NeurIPS 2021
+2
+Kamath, Jia & Liang 2020
+Selective Question
+Answering under Domain
+Shift, ACL 2020
+2
+Mohri & Hashimoto 2024
+Language Models with
+Conformal Factuality
+Guarantees, ICML 2024
+3
+Beneish 1999
+The Detection of Earnings
+Manipulation, FAJ 1999 (corr.
+Jan 2004)
+5
+Tracks 4 (attribution/provenance), 6 (long-horizon agentic reasoning), and 8 (adversar-
+ial/coordinated fraud) receive no material support from this set of six papers. Track 8’s
+near-total absence of grounding is discussed in the closing section.
+2
+Calibrated Abstention Agent — Research Extraction Synthesis
+Track 1 — Selective Prediction & Learning to Defer
+1A. Geifman & El-Yaniv — Selective Classification for Deep Neural Net-
+works
+Core construct
+A selective classifier is a pair (𝑓, 𝑔) where 𝑓∶𝒳→𝒴is a classifier and 𝑔∶𝒳→{0, 1} is a
+selection function:
+(𝑓, 𝑔)(𝑥) ≜{𝑓(𝑥),
+if 𝑔(𝑥) = 1
+don’t know,
+if 𝑔(𝑥) = 0
+The two metrics to adopt
+Coverage is 𝜙(𝑓, 𝑔) ≜𝔼𝑃[𝑔(𝑥)], the probability mass of the non-rejected region. Selective
+risk is:
+𝑅(𝑓, 𝑔) ≜𝔼𝑃[ℓ(𝑓(𝑥), 𝑦) 𝑔(𝑥)]
+𝜙(𝑓, 𝑔)
+Note the denominator. Selective risk is risk conditional on answering — this is exactly the
+quantity the underwriting system is accountable for, since routed-to-human cases do not count
+as model errors.
+The full performance profile of such a classifier is specified by its risk-
+coverage curve.
+The guarantee formulation
+Given classifier 𝑓, training sample 𝑆𝑚, confidence 𝛿> 0, and desired risk target 𝑟∗> 0, find
+𝑔such that:
+Pr
+𝑆𝑚
+{𝑅(𝑓, 𝑔) > 𝑟∗} < 𝛿
+subject to maximizing coverage. The threshold selection function is:
+𝑔𝜃(𝑥) = 𝑔𝜃(𝑥∣𝜅𝑓) ≜𝟙[𝜅𝑓(𝑥) ≥𝜃]
+Tightest numerical bound (Lemma 3.1; Gascuel & Caraux 1992)
+𝐵∗(̂𝑟, 𝛿, 𝑆𝑚) is the solution 𝑏of:
+𝑚⋅̂𝑟(𝑓∣𝑆𝑚)
+∑
+𝑗=0
+(𝑚
+𝑗)𝑏𝑗(1 −𝑏)𝑚−𝑗= 𝛿
+Then Pr𝑆𝑚{𝑅(𝑓∣𝑃) > 𝐵∗(̂𝑟, 𝛿, 𝑆𝑚)} < 𝛿.
+This is the tightest possible bound in this setting. As the source discusses, analytic bounds de-
+rived using Hoeffding or other concentration inequalities merely approximate this numerical
+bound and incur slack. Use this, not Hoeffding.
+3
+Calibrated Abstention Agent — Research Extraction Synthesis
+SGR Algorithm (Algorithm 1)
+Binary search over the confidence-ranked training set:
+SGR(f, kappa_f, delta, r*, S_m):
+Sort S_m according to kappa_f(x_i)
+z_min = 1; z_max = m
+for i = 1 to k = ceil(log2 m):
+z
+= ceil((z_min + z_max)/2)
+theta = kappa_f(x_z)
+g_i
+= g_theta
+r_i
+= empirical selective risk of (f, g_i) on S_m
+b_i
+= B*(r_i, delta/ceil(log2 m), g_i(S_m))
+<- delta/k correction
+if b_i < r*:
+z_max = z
+else:
+z_min = z
+Output (f, g_k) and bound b_k
+Theorem 3.2 (SGR uniform convergence). For 𝑘≜⌈log2 𝑚⌉:
+Pr
+𝑆𝑚
+{∃𝑖∶𝑅(𝑓∣𝑃𝑔𝑖) > 𝐵∗(̂𝑟𝑖, 𝛿/𝑘, 𝑔𝑖(𝑆𝑚))} < 𝛿
+The 𝛿/𝑘split is the union bound over binary-search iterations. This is the step practitioners
+skip and then wonder why their bound is violated in production.
+Confidence-rate function: Softmax Response (SR)
+𝜅≜max
+𝑗∈𝒴𝑓(𝑥∣𝑗)
+The stated ideal property is loss monotonicity: given (𝑥1, 𝑦1) ∼𝑃and (𝑥2, 𝑦2) ∼𝑃, one
+would like 𝜅𝑓(𝑥1) ≤𝜅𝑓(𝑥2) if and only if ℓ(𝑓(𝑥1), 𝑦1) ≥ℓ(𝑓(𝑥2), 𝑦2). The paper concedes no
+realizable 𝜅𝑓is ideal.
+Critically, the authors argue that since only coherent ranking is needed rather than absolute
+probability values, softmax responses are potentially good candidates for relative confidence
+rates despite criticism of treating them as probabilities.
+Empirical validation
+CIFAR-10, VGG-16, 𝛿= 0.001:
+Desired risk
+𝑟∗
+Train risk
+Train cov.
+Test risk
+Test cov.
+Risk bound 𝑏∗
+0.01
+0.0079
+0.7822
+0.0092
+0.7856
+0.0099
+0.02
+0.0160
+0.8482
+0.0149
+0.8466
+0.0199
+0.03
+0.0260
+0.8988
+0.0261
+0.8966
+0.0298
+0.04
+0.0362
+0.9348
+0.0380
+0.9318
+0.0399
+0.05
+0.0454
+0.9610
+0.0486
+0.9596
+0.0491
+0.06
+0.0526
+0.9778
+0.0572
+0.9784
+0.0600
+Across CIFAR-10, CIFAR-100, and ImageNet the risk bound 𝑏∗is always very close to the
+target 𝑟∗, and the test risk is always bounded above by 𝑏∗as required. On ImageNet top-5
+with VGG-16, 𝑟∗= 0.02 yields 0.5351 test coverage; with RESNET-50, 𝑟∗= 0.02 yields 0.5935
+— the abstract’s “almost 60% test coverage” refers to the RESNET figure.
+The risk-coverage profiles for SR and MC-dropout are nearly identical on both CIFAR datasets.
+On ImageNet, SR is significantly superior: at top-1 and 60% coverage, SR rejection has 10%
+error while MC-dropout rejection incurs more than 20% error. The paper focuses on SR there-
+after.
+4
+Calibrated Abstention Agent — Research Extraction Synthesis
+The baseline-comparison result to replicate
+The authors compared SGR against the natural naive baseline: set the threshold to the value
+maximizing coverage while keeping train error smaller than 𝑟∗.
+Over 1000 random train/test splits, the naive baseline violated 𝑟∗on the test set
+in over 50% of cases, with a mean violation of 18% relative to the requested
+𝑟∗.
+This is the strongest available argument for why threshold-by-eyeball is insufficient in a reg-
+ulated setting: a concrete, citable failure rate against the exact procedure a reasonable engi-
+neer would otherwise adopt by default.
+Open problems flagged by the authors
+Both map onto project gaps and are quoted in substance from the source’s concluding re-
+marks:
+• Joint training: “the most challenging open question would be to simultaneously train both
+the classifier 𝑓and the selection function 𝑔to optimize coverage for a given risk level.”
+• Loss generality: “In this paper we only studied selective classification under the 0/1 loss.
+It would be of great importance to extend our techniques to other loss functions and
+specifically to regression, and to fully control false-positive and false-negative rates.”
+Direct relevance flag. SGR assumes 0/1 loss and i.i.d. sampling from a fixed 𝑃. The
+project’s extraction fields are numeric (regression-like), and the entire Track 2 premise
+is that exchangeability fails. SGR as published does not directly transfer.
+What does transfer: (a) the selective-risk definition with its conditional denominator; (b)
+the 𝛿/𝑘union-bound discipline; (c) the Gascuel–Caraux bound as the tight primitive rather
+than Hoeffding; and (d) the 50%-violation baseline result as motivation.
+The authors
+themselves name regression extension and FP/FN control as open — meaning the project
+cannot cite this paper as having solved the numeric case.
+5
+Calibrated Abstention Agent — Research Extraction Synthesis
+1B. Mozannar & Sontag — Consistent Estimators for Learning to Defer
+to an Expert
+System loss formulation
+Predictor̂ 𝑌∶𝒳→𝒴∪{⟂} decomposes into classifier ℎ∶𝒳→𝒴and rejector 𝑟∶𝒳→{0, 1}:
+𝐿(ℎ, 𝑟) = 𝔼(𝑥,𝑦)∼𝑃, 𝑚∼𝑀∣(𝑥,𝑦)[ 𝑙(𝑥, 𝑦, ℎ(𝑥))
+⏟⏟⏟⏟⏟
+classifier cost
+𝕀𝑟(𝑥)=0
+⏟
+predict
++ 𝑙exp(𝑥, 𝑦, 𝑚)
+⏟⏟⏟⏟⏟
+expert cost
+𝕀𝑟(𝑥)=1
+⏟
+defer
+]
+The 0–1 version:
+𝐿0−1(ℎ, 𝑟) = 𝔼(𝑥,𝑦)∼𝑃, 𝑚∼𝑀∣(𝑥,𝑦)[𝕀ℎ(𝑥)≠𝑦𝕀𝑟(𝑥)=0 + 𝕀𝑚≠𝑦𝕀𝑟(𝑥)=1]
+Key generalization for the project’s cost model
+Setting 𝑙exp(𝑥, 𝑦, 𝑚) = 𝑐for constant 𝑐> 0 recovers the learning-with-rejection framework of
+Cortes et al. More useful here, the paper explicitly states:
+“One may also assume a constant additive cost function 𝑐(𝑥) for querying the expert
+depending on the instance 𝑥making 𝑙exp(𝑥, 𝑦, 𝑚) = 𝕀𝑚≠𝑦+𝑐(𝑥); such additive costs
+can be easily integrated into our analysis.”
+This is the hook for modeling reviewer time cost per routed field.
+An instance-dependent
+deferral cost is sanctioned by the framework, not a hack bolted onto it.
+Bayes-optimal solution (Proposition 2)
+With 𝜂𝑦(𝑥) = 𝑃(𝑌= 𝑦∣𝑋= 𝑥), the minimizers of 𝐿0−1 are defined point-wise for all 𝑥∈𝒳
+as:
+ℎ𝐵(𝑥) = arg max
+𝑦∈𝒴𝜂𝑦(𝑥)
+𝑟𝐵(𝑥) = 𝕀[ max
+𝑦∈𝒴𝜂𝑦(𝑥) ≤𝑃(𝑌= 𝑀∣𝑋= 𝑥)]
+Read plainly: defer if and only if the model’s best-case confidence is below the ex-
+pert’s probability of being correct on this instance. This is a comparison against instance-
+conditional expert accuracy, not against a fixed global threshold.
+The analogue for this project: route field 𝑘to a reviewer iff calibrated model confidence on field
+𝑘falls below expected reviewer accuracy on field 𝑘. If reviewer accuracy is not modeled as
+instance-dependent, the design is implicitly assuming it constant — which is precisely where
+the paper’s own toy example shows confidence methods break.
+Cost-sensitive surrogate (generalizes cross-entropy)
+With 𝑔𝑖∶𝒳→ℝfor 𝑖∈[𝐾+ 1] and ℎ(𝑥) = arg max𝑖∈[𝐾+1] 𝑔𝑖:̃
+𝐿𝐶𝐸(𝑔1, … , 𝑔𝐾+1, 𝑥, 𝑐(1), … , 𝑐(𝐾+ 1)) = −
+𝐾+1
+∑
+𝑖=1
+(
+max
+𝑗∈[𝐾+1] 𝑐(𝑗) −𝑐(𝑖)) log (
+exp(𝑔𝑖(𝑥))
+∑𝑘exp(𝑔𝑘(𝑥)))
+Proposition 1.̃ 𝐿𝐶𝐸is convex in 𝑔and is a consistent loss function for̃ 𝐿: letting̃ 𝑔=
+arg inf𝑔𝔼[̃𝐿𝐶𝐸(𝑔, 𝑐) ∣𝑋= 𝑥], then
+6
+Calibrated Abstention Agent — Research Extraction Synthesis
+arg
+max
+𝑖∈[𝐾+1]̃ 𝑔𝑖= arg
+min
+𝑖∈[𝐾+1] 𝔼[𝑐(𝑖) ∣𝑋= 𝑥]
+The paper notes this is a simpler consistent alternative to the surrogates derived in Chen et
+al. (2019) for cost-sensitive learning.
+The main surrogate 𝐿𝐶𝐸(Eq. 6)
+Augmenting the label space to 𝒴⟂= 𝒴∪{⟂}, with 𝑟(𝑥) = 𝕀[max𝑦∈𝒴𝑔𝑦(𝑥) ≤𝑔⟂]:
+𝐿𝐶𝐸(ℎ, 𝑟, 𝑥, 𝑦, 𝑚) = −log (
+exp(𝑔𝑦(𝑥))
+∑𝑦′∈𝒴∪⟂exp(𝑔𝑦′(𝑥))) −𝕀𝑚=𝑦log (
+exp(𝑔⟂(𝑥))
+∑𝑦′∈𝒴∪⟂exp(𝑔𝑦′(𝑥)))
+Theorem 1. 𝐿𝐶𝐸is convex in g, upper bounds 𝐿0−1, and is consistent: infℎ,𝑟𝔼𝑥,𝑦,𝑚[𝐿𝐶𝐸(ℎ, 𝑟, 𝑥, 𝑦, 𝑚)]
+is attained at (ℎ∗
+𝐶𝐸, 𝑟∗
+𝐶𝐸) such that ℎ𝐵(𝑥) = ℎ∗
+𝐶𝐸(𝑥) and 𝑟𝐵(𝑥) = 𝑟∗
+𝐶𝐸(𝑥) for all 𝑥∈𝒳.
+The paper’s own reading of the loss: on examples where the expert makes a mistake, 𝐿𝐶𝐸
+becomes the cross-entropy loss with the target; where the expert agrees with the target, the
+learner faces two opposing decisions — defer, or predict the target.
+The 𝛼-reweighting (Eq. 7)
+Practically the most transferable knob in the paper:
+𝐿𝛼
+𝐶𝐸(ℎ, 𝑟, 𝑥, 𝑦, 𝑚) = −(𝛼⋅𝕀𝑚=𝑦+𝕀𝑚≠𝑦) log (
+exp(𝑔𝑦(𝑥))
+∑𝑦′∈𝒴∪⟂exp(𝑔𝑦′(𝑥)))−𝕀𝑚=𝑦log (
+exp(𝑔⟂(𝑥))
+∑𝑦′∈𝒴∪⟂exp(𝑔𝑦′(𝑥)))
+Note 𝐿1
+𝐶𝐸= 𝐿𝐶𝐸.
+The effect of 𝛼is to re-weight examples where the expert is correct,
+discouraging the learner from fitting them and instead focusing capacity where the expert
+errs. Treated as a hyperparameter to optimize. The CheXpert experiments tune 𝛼per-task
+(selected values 0.1–0.4), which maps cleanly onto per-field-type routing.
+Generalization bound (Theorem 2, binary target)
+For any expert 𝑀and data distribution 𝑃over 𝒳× 𝒴, let 0 < 𝛿< 1
+2. With probability at least
+1 −𝛿, the empirical minimizers (̂ℎ∗,̂ 𝑟∗) satisfy:
+𝐿0−1(̂ℎ∗,̂ 𝑟∗) ≤𝐿0−1(ℎ∗, 𝑟∗)+ℜ𝑛(ℋ)+ℜ𝑛(ℛ)+ℜ𝑛𝑃(𝑀≠𝑌)/2(ℛ)+2√log 2
+𝛿
+2𝑛+𝑃(𝑀≠𝑌)
+2
+exp (−𝑛𝑃(𝑀≠
+8
+Performance is controlled by the Rademacher complexities ℜ𝑛(ℋ), ℜ𝑛(ℛ) of both model
+classes and by the expert’s error rate. When 𝑃(𝑀≠𝑌) = 0 this recovers the bound of
+Cortes et al. (2016b) for rejection learning with 𝑐= 0; the authors’ interpretation:
+“this gives evidence that deferring to an expert is a more sample intensive problem
+than rejection learning.”
+Budget annotation accordingly — reviewer-decision labels are required, and this bound says
+they are expensive. The authors also note their approach combines rejector and classifier in
+one model specifically to avoid paying both complexity costs.
+7
+Calibrated Abstention Agent — Research Extraction Synthesis
+Negative results the design must account for
+1.
+Failure of confidence-score methods (Section 5.1). The natural pipeline — train a
+classifier minimizing misclassification with the target, obtain confidence scores; separately
+learn a model predicting whether the expert agrees with the label and extract its confidence;
+defer to whichever is more confident (Raghu et al. 2019a) — is a consistent estimator for
+both rejector and classifier. It nonetheless fails under limited hypothesis class or limited data
+because it does not allow ℎto adapt to the expert’s strengths and weaknesses.
+Their toy example: two subpopulations 𝐴∈{0, 1} with 𝑃(𝐴= 1) ≥𝑃(𝐴= 0). The expert
+perfectly classifies group 𝐴= 1, which contains cluster (1) separable only by a complex
+nonlinear boundary and cluster (2) separable only via expert side-information 𝑍unavailable
+from 𝑋. Restricting ℎand 𝑟to 𝑑-dimensional hyperplanes: learning ℎfirst yields a hyperplane
+minimizing average error across both groups and separating neither. The optimal behavior is
+for ℎto fit group 𝐴= 0 while 𝑟separates the groups. Cluster (2) cannot be separated even
+with infinite data — the expert’s side information is required, and the hard task is identifying
+that region.
+2.
+Inconsistency of the mixture-of-experts loss (Proposition 3).
+With 𝑟(𝑥)
+=
+arg max𝑖∈{0,1} 𝑟𝑖(𝑥):
+𝐿𝑚𝑖𝑥(𝑔, 𝑟, 𝑥, 𝑦, 𝑚) = −log (
+exp(𝑔𝑦(𝑥))
+∑𝑦′∈𝒴exp(𝑔𝑦′(𝑥)))⋅
+exp(𝑟0(𝑥))
+∑𝑖∈{0,1} exp(𝑟𝑖(𝑥))+𝕀𝑚≠𝑦
+exp(𝑟1(𝑥))
+∑𝑖∈{0,1} exp(𝑟𝑖(𝑥))
+𝐿𝑚𝑖𝑥(extending Madras et al. 2018 to multiclass) is not classification consistent. Observed
+failure mode, quoted: “when training, the loss of the classifier will converge to zero and
+validation classifier accuracy will still improve in the mean-time, however the loss of the expert
+remains constant, thus we never defer.”
+Experimental validation
+Setting
+Result
+Synthetic (Gaussian mixture, 𝑑= 10, 200
+trials)
+𝐿0
+𝐶𝐸– Confidence = +6.39 acc, 95% CI
+[3.71, 9.06]; 𝐿0
+𝐶𝐸– Oracle = +0.22 [–1.71,
+2.15]; 𝐿0
+𝐶𝐸– MixOfExp = +2.01 [0.14, 4.06]
+CIFAR-10 (WideResNet-28, no augmentation;
+benchmark 90.47% test acc)
+𝐿0.5
+𝐶𝐸, 𝐿1
+𝐶𝐸beat Confidence by 1.01% avg,
+LearnedOracle by 1.94% avg
+CIFAR-10 sample complexity (𝑘= 5,
+𝑛= 2000)
+Confidence 62.33% vs. ours 70.12% (+7.89)
+CIFAR-10H (real human annotators, 95.22%
+± 0.18 acc)
+𝐿𝐶𝐸impute: system 96.29 ± 0.25, coverage
+51.67 ± 1.46, classifier-on-non-deferred 99.2
+± 0.08. Confidence: 95.09 ± 0.40 / 79.48 ±
+5.93 / 96.09 ± 0.42
+CheXpert (DenseNet121, 5 tasks, expert
+𝑞= 0.7, 𝑝= 1)
+Max AU-ROC gain over Confidence: +0.039,
++0.026, +0.018, +0.022, +0.027 per task;
+curves concave ⇒combined system beats
+either component alone
+The CheXpert coverage-control protocol is directly reusable for a reviewer-budget constraint.
+Sort the test set by
+𝑞(𝑥) ∶= 𝑔⟂(𝑥) −max(𝑔0(𝑥), 𝑔1(𝑥))
+then to achieve coverage 𝑐, set 𝜏= 𝑞(𝑥𝑐) where 𝑞(𝑥𝑐) is the 𝑐-th percentile, and defer iff
+𝑞(𝑥) ≥𝜏. The definition of 𝜏ensures exactly 𝑐% coverage by construction.
+8
+Calibrated Abstention Agent — Research Extraction Synthesis
+The fairness result — direct Track 7 implications
+Section 6.5, hate speech and offensive language detection (Davidson et al. 2017, 24,783
+tweets). Discrimination is defined as the difference in false-positive rates between AAE and
+non-AAE tweets. With a fair expert (equal error rates across groups, 𝑝= 𝑞= 0.9):
+• Classifier alone: discrimination 0.226
+• Fair expert alone: discrimination 0.03
+• Composed system via confidence-score baseline: discrimination 0.449
+The composed system roughly doubled the classifier’s discrimination.
+Conversely, with an
+expert biased against non-AAE tweets (discrimination 0.084), the confidence method’s dis-
+crimination reduced to 0.151. The authors’ framing: this “reiterates the established fact that
+fairness does not compose (Dwork & Ilvento, 2018). In fact, the end-to-end system can be less
+discriminatory even if the individual components are more discriminatory.”
+This is the single most important transferable finding for Track 7. The project
+routes to human reviewers. A defensible fair-lending posture cannot be established by
+showing the model is fair and the reviewers are fair. Disparate impact must be measured
+end-to-end on the composed system, and the composition can be strictly worse than
+either component in isolation.
+Note the direction of the effect is not even predictable from component properties: a
+fair expert made things worse, a biased expert made things better. No component-wise
+argument will survive scrutiny. Build end-to-end disparate-impact measurement into the
+evaluation design now, not as an afterthought.
+9
+Calibrated Abstention Agent — Research Extraction Synthesis
+Track 2 — Calibration Under Distribution Shift
+2A. Gibbs & Candès — Adaptive Conformal Inference Under Distribu-
+tion Shift
+Setup
+Online setting: {(𝑋𝑡, 𝑌𝑡)}𝑡∈ℕ⊆ℝ𝑑× ℝobserved sequentially. At each 𝑡, form prediction set̂
+𝐶𝑡for 𝑌𝑡using {(𝑋𝑟, 𝑌𝑟)}1≤𝑟≤𝑡−1 and 𝑋𝑡. Goal: guarantee 𝑌𝑡∈̂ 𝐶𝑡at least 100(1 −𝛼)% of
+the time.
+Standard split conformal — the baseline being departed from
+Conformity score 𝑆(𝑋, 𝑌) measures how well a candidate value conforms with the fitted
+model. Examples: 𝑆(𝑋𝑡, 𝑦) = |̂𝜇(𝑋𝑡) −𝑦| for point predictions, or conformalized quantile
+regression (CQR):
+𝑆(𝑋𝑡, 𝑦) = max{̂𝑞(𝑋𝑡; 𝛼/2) −𝑦, 𝑦−̂ 𝑞(𝑋𝑡; 1 −𝛼/2)}
+Fitted quantile of the conformity scores over calibration set 𝒟𝑐𝑎𝑙:̂
+𝑄(𝑝) ∶= inf
+⎧
+{
+⎨
+{
+⎩
+𝑠∶⎛
+⎜
+⎝
+1
+|𝒟𝑐𝑎𝑙|
+∑
+(𝑋𝑟,𝑌𝑟)∈𝒟𝑐𝑎𝑙
+𝟙{𝑆(𝑋𝑟, 𝑌𝑟) ≤𝑠}⎞
+⎟
+⎠
+≥𝑝
+⎫
+}
+⎬
+}
+⎭
+Under exchangeability of 𝒟𝑐𝑎𝑙∪{(𝑋𝑡, 𝑌𝑡)} with uniform tie-breaking, the rank of 𝑆(𝑋𝑡, 𝑌𝑡)
+is uniform, giving marginal coverage:
+𝑃(𝑌𝑡∈̂ 𝐶𝑡) = 𝑃(𝑆(𝑋𝑡, 𝑌𝑡) ≤̂ 𝑄(1 −𝛼)) = ⌈|𝒟𝑐𝑎𝑙|(1 −𝛼)⌉
+|𝒟𝑐𝑎𝑙| + 1
+The ACI machinery
+Realized miscoverage rate of̂ 𝐶𝑡(𝛼) ∶= {𝑦∶𝑆𝑡(𝑋𝑡, 𝑦) ≤̂ 𝑄𝑡(1 −𝛼)}:
+𝑀𝑡(𝛼) ∶= 𝑃(𝑆𝑡(𝑋𝑡, 𝑌𝑡) >̂ 𝑄𝑡(1 −𝛼))
+Under non-stationarity 𝑀𝑡(𝛼) ≠𝛼, but there exists an alternative value
+𝛼∗
+𝑡∶= sup{𝛽∈[0, 1] ∶𝑀𝑡(𝛽) ≤𝛼}
+with 𝑀𝑡(𝛼∗
+𝑡) = 𝛼under mild continuity conditions. The entire method is: track 𝛼∗
+𝑡online.
+The update (Eq. 2) — the whole algorithm
+err𝑡= {1,
+if 𝑌𝑡∉̂ 𝐶𝑡(𝛼𝑡)
+0,
+otherwise
+𝛼𝑡+1 ∶= 𝛼𝑡+ 𝛾(𝛼−err𝑡)
+A weighted alternative (Eq. 3) with increasing weights {𝑤𝑠}1≤𝑠≤𝑡⊆[0, 1], ∑𝑠𝑤𝑠= 1:
+𝛼𝑡+1 = 𝛼𝑡+ 𝛾(𝛼−
+𝑡
+∑
+𝑠=1
+𝑤𝑠err𝑠)
+10
+Calibrated Abstention Agent — Research Extraction Synthesis
+The authors’ finding: (2) and (3) produce almost identical results; (3) is smoother with less
+local variation in 𝛼𝑡. They focus on (2) for simplicity. With 𝑤𝑠∝0.95𝑡−𝑠the trajectories are
+very similar.
+Distribution-free guarantee — the headline
+Lemma 4.1. With probability one, ∀𝑡∈ℕ, 𝛼𝑡∈[−𝛾, 1 + 𝛾].
+Proposition 4.1. With probability one, for all 𝑇∈ℕ:
+∣1
+𝑇
+𝑇
+∑
+𝑡=1
+err𝑡−𝛼∣≤
+max{𝛼1, 1 −𝛼1} + 𝛾
+𝑇𝛾
+and in particular lim𝑇→∞
+1
+𝑇∑
+𝑇
+𝑡=1 err𝑡
+𝑎.𝑠.
+= 𝛼.
+Proposition 4.1 puts no constraints whatsoever on the data generating distribution.
+This is the property that makes ACI defensible under model-risk review: long-run empirical
+coverage holds even if every modeling assumption is wrong.
+The authors additionally argue this bound is approximately tight immediately after initializa-
+tion. Considering a fixed optimal 𝛼∗and noiseless update, they derive
+∣1
+𝑇
+𝑇
+∑
+𝑡=1
+𝔼[err𝑡] −𝛼∣= 1 −(1 −𝑐𝛾)𝑇
+𝑇𝛾
+|𝛼1 −𝛼∗|
+The difference from Prop. 4.1 is replacing max{1 −𝛼1, 𝛼1} with |𝛼1 −𝛼∗|; since 𝛼∗∈(0, 1) is
+arbitrary, max{1−𝛼1, 𝛼1} is the best possible upper bound on |𝛼1−𝛼∗|. Prop. 4.1 is therefore
+both an agnostic long-run guarantee and an approximately tight worst-case characterization
+of post-initialization behavior.
+Step size 𝛾— tradeoff and tuning rule
+Larger 𝛾makes the method more adaptive to observed shifts but induces greater volatility in
+𝛼𝑡. Quoted concern: “large fluctuations in 𝛼𝑡may be undesirable as it allows the method to
+oscillate between outputting small conservative and large anti-conservative prediction sets.”
+Theorem 4.2’s bound is optimized by 𝛾∝√|𝛼∗
+𝑡+1 −𝛼∗
+𝑡|. Explicitly, 𝛾= (2 𝔼|𝛼∗
+𝐴𝑡+1 −𝛼∗
+𝐴𝑡|)1/2
+yields:
+𝔼[(𝑀(𝛼𝑡∣𝐴𝑡) −𝛼)2] ≤𝐿(
+√
+2 + 1)√𝔼|𝛼∗
+𝐴𝑡+1 −𝛼∗
+𝐴𝑡|
+The experiments used 𝛾= 0.005, chosen because it gave relatively stable 𝛼𝑡trajectories
+while remaining sufficiently large to adapt to observed shifts. Larger 𝛾values also successfully
+protect against shift; too-small 𝛾causes ACI to degenerate toward the non-adaptive method
+holding 𝛼𝑡= 𝛼constant.
+Theorem 4.1 (HMM large-deviation bound)
+Assume {𝐴𝑡}𝑡∈ℕhas non-zero absolute spectral gap 1 −𝜂> 0. Let
+𝐵∶= sup
+𝑎∈𝒜
+|𝔼[err𝑡∣𝐴𝑡= 𝑎] −𝛼|,
+𝜎2
+𝐵∶= 𝔼[(𝔼[err𝑡∣𝐴𝑡] −𝛼)2]
+Then for all 𝜖> 0:
+11
+Calibrated Abstention Agent — Research Extraction Synthesis
+𝑃(∣1
+𝑇
+𝑇
+∑
+𝑡=1
+err𝑡−𝛼∣≥𝜖) ≤2 exp (−𝑇𝜖2
+8 ) + 2 exp (−
+𝑇(1 −𝜂)𝜖2
+8(1 + 𝜂)𝜎2
+𝐵+ 20𝐵𝜖)
+The first term is what Hoeffding would give for an i.i.d. sequence (the dependence of 𝛼𝑡on past
+errors induces negative correlation, so errors concentrate at least as fast as i.i.d. Bernoulli).
+The second term, via a Bernstein inequality for Markov chains, controls dependence induced
+by 𝐴𝑡depending on 𝐴𝑡−1.
+Supporting bound (Lemma A.4): under a second-order Taylor expansion of 𝑀(⋅∣𝑎),
+𝐵≤𝐶(𝛾+ 𝛾−1 sup
+𝑎∈𝒜
+sup
+𝑘∈ℕ
+𝔼[|𝛼∗
+𝐴𝑡+1 −𝛼∗
+𝐴𝑡| ∣𝐴𝑡+𝑘= 𝑎]) ,
+𝜎2
+𝐵≤𝐵2
+Theorem 4.2 (approximate marginal coverage)
+Assume ∃𝐿> 0 with |𝑀(𝛼2 ∣𝑎) −𝑀(𝛼1 ∣𝑎)| ≤𝐿|𝛼2 −𝛼1| for all 𝑎, and that ∀𝑎there exists
+𝛼∗
+𝑎∈(0, 1) with 𝑀(𝛼∗
+𝑎∣𝑎) = 𝛼. Then:
+𝔼[(𝑀(𝛼𝑡∣𝐴𝑡) −𝛼)2] ≤𝐿(1 + 𝛾)
+𝛾
+𝔼|𝛼∗
+𝐴𝑡+1 −𝛼∗
+𝐴𝑡| + 𝐿2𝛾
+The quantity 𝔼|𝛼∗
+𝐴𝑡+1 −𝛼∗
+𝐴𝑡| is the paper’s quantitative measurement of distribution shift
+size. It is directly usable as a monitoring statistic in production.
+Section 5 — the finding that will bite, and the one to design around
+Score design directly controls ACI’s coverage properties. Theorems 4.1 and 4.2 show perfor-
+mance is controlled by the size of the shift in 𝛼∗
+𝑡across time; 𝛼∗
+𝑡is in one-to-one correspon-
+dence with the 1 −𝛼quantile of 𝑆𝑡(𝑋𝑡, 𝑌𝑡). Therefore ACI’s coverage properties depend
+on how close 𝑆𝑡(𝑋𝑡, 𝑌𝑡) is to being stationary.
+Their demonstration uses the normalized score
+𝑆𝑡∶= |𝑉𝑡−̂ 𝜎2
+𝑡|̂
+𝜎2
+𝑡
+versus the a-priori-reasonable unnormalized̃
+𝑆𝑡∶= |𝑉𝑡−̂ 𝜎2
+𝑡|
+Normalization bŷ 𝜎2
+𝑡“is critical for obtaining an approximately stationary conformity score
+and thus̃ 𝑆𝑡leads to much worse coverage properties.” Their Figure 1 (normalized) shows a
+tight band around 0.9; Figure 2 (unnormalized) shows swings roughly 0.4–1.0. The issue is
+partially mitigable with larger 𝛾.
+Design implication — cheap to act on now. Do not use raw absolute error as the
+extraction confidence score. Normalize by a scale estimate (predicted magnitude, field-
+typical variance, statement-period volume) so the score is approximately stationary across
+document formats and industries.
+This is a concrete architectural decision with a documented failure mode attached, and it
+costs nothing to get right at design time versus considerable rework later.
+Financial validation (Section 2.2) — closest available to the Track 2 gap
+GARCH(1,1) volatility prediction. With {𝑃𝑡} daily open prices, returns 𝑅𝑡∶= (𝑃𝑡−𝑃𝑡−1)/𝑃𝑡−1,
+realized volatility 𝑉𝑡= 𝑅2
+𝑡; the model assumes 𝑅𝑡= 𝜎𝑡𝜖𝑡with 𝜖∼i.i.d. 𝒩(0, 1) and
+12
+Calibrated Abstention Agent — Research Extraction Synthesis
+𝜎2
+𝑡= 𝜔+ 𝜏𝑉𝑡−1 + 𝛽𝜎2
+𝑡−1
+refit at each 𝑡using only the trailing 1250 trading days (approximately 5 years). Point predic-
+tion (̂𝜎𝑡
+𝑡)2 ∶=̂ 𝜔𝑡+̂ 𝜏𝑡𝑉𝑡−1 +̂ 𝛽𝑡(̂𝜎𝑡
+𝑡−1)2. Parameters: 𝛼= 0.1, 𝛾= 0.005, 𝛼1250 = 𝛼. Local
+coverage measured over a two-year window:
+localCov𝑡∶= 1 −
+1
+500
+𝑡+250
+∑
+𝑟=𝑡−250+1
+err𝑟
+Result:
+ACI’s local coverage always stays within the variation expected from an i.i.d.
+Bernoulli(0.1) sequence. The non-adaptive method undergoes large excursions from the 0.9
+target — and specifically fails to cover the realized volatility of Fannie Mae during the
+2008 financial crisis, while the adaptive method is robust to this event.
+Data source: daily open prices from publicly available Wall Street Journal datasets. The four
+stocks shown (Nvidia, AMD, BlackBerry, Fannie Mae) were selected from 12 examined because
+they showed a clear failure of the non-adaptive method; ACI performed well in all 12 (Appendix
+Figure 9 covers 8 more: S&P 500, Nasdaq, Dow Jones, Apple, Illumina, Exxon Mobil, Toyota,
+Goldman Sachs).
+This is the closest item in the citation set to ”adaptive conformal on financial time-series
+data.” It is volatility, not underwriting ratios — but it is a credit-crisis-era regime break on
+a financial institution’s time series, which is exactly the failure mode a model-risk reviewer
+will raise. Cite it precisely for what it is. Do not overclaim it as underwriting evidence;
+the Track 2 gap (”adaptive/online conformal applied to tabular or financial underwriting
+data”) remains genuinely open.
+Second validation (Section 6) — election night
+CQR applied to approximately 𝑇= 3000 county-level vote totals for the 2020 US presidential
+election, replicating the method the Washington Post used on election night (Cherian & Bron-
+ner 2020).
+Covariates 𝑋𝑡: county demographics by ethnicity, age, sex, median household
+income, education. Counties ordered by time zone (eastern first, Hawaiian last), randomized
+within zone, reproducing the observed east-to-west reporting bias.
+The key observation: “If the order in which vote counts completed was uniformly random
+{(𝑋𝑡, 𝑌𝑡)} would be an exchangeable sequence on which we could run standard conformal
+inference methods. In reality, larger urban counties tend to report results later than smaller
+rural counties… Thus, the distribution of (𝑋𝑡, 𝑌𝑡) can be viewed as drifting throughout election
+night.”
+Result: the non-adaptive method fails to maintain 90% coverage, incurring large troughs dur-
+ing time zone changes; the adaptive method maintains approximate 90% coverage across all
+time points with Bernoulli-comparable deviations.
+Transferable insight, and the cleanest analogy available. The drift here arises purely
+from non-random arrival order of otherwise exchangeable-looking units — no adversary,
+no concept drift, no model degradation. Loan applications arrive in non-random order too:
+seasonality, industry clustering, broker channel batching, marketing campaign timing.
+This is the strongest argument for why exchangeability fails in the project’s pipeline with-
+out needing to posit anything exotic. It is more persuasive to a skeptical reviewer than
+the volatility example, because it requires no assumption about market regimes.
+Relation to prior shift work (Section 3)
+13
+Calibrated Abstention Agent — Research Extraction Synthesis
+Approach
+Guarantee
+Requirement that blocks
+reuse
+Tibshirani et al. (covariate
+shift)
+Valid sets via re-weighting
+calibration data by likelihood
+ratio 𝑃1(𝑋)/𝑃0(𝑋)
+Requires 𝑌∣𝑋constant
+between train and test, and
+the likelihood ratio known or
+very accurately estimated
+Cauchois et al.
+Valid whenever
+𝐷𝑓(𝑃1‖𝑃0) ≤𝜌; ∃𝛼𝜌with
+𝑀(𝛼𝜌) ≤𝛼
+Fixes a single conservative
+𝛼𝜌; they observe no data
+from which shift size can be
+estimated
+ACI
+Long-run coverage,
+distribution-free
+Requires 𝑌𝑡revealed each
+step (see flag below)
+ACI’s two differences from Cauchois et al., as stated: it estimates the optimal 𝛼∗satisfying
+𝑀(𝛼∗) = 𝛼rather than fixing a conservative value; and it works fully online with continuous
+shift rather than one train/one test distribution.
+Connection to online learning (Appendix A.1)
+Let 𝛽𝑡∶= sup{𝛽∶𝑌𝑡∈̂ 𝐶𝑡(𝛽)} (the smallest prediction set containing 𝑌𝑡) and define the
+pinball loss:
+𝜌𝛼(𝑢) = {𝛼𝑢,
+𝑢> 0
+−(1 −𝛼)𝑢,
+𝑢≤0
+With ℓ(𝛼𝑡, 𝛽𝑡) = 𝜌𝛼(𝛽𝑡−𝛼𝑡), one directly computes:
+𝛼𝑡−𝛾𝜕𝛼𝑡ℓ(𝛼𝑡, 𝛽𝑡) = 𝛼𝑡+ 𝛾(𝛼−𝟙𝛼𝑡>𝛽𝑡) = 𝛼𝑡+ 𝛾(𝛼−err𝑡)
+So ACI is online gradient descent on the pinball loss. Important caveat for citation hygiene:
+the authors note standard regret analysis “fails to capture our intuition that 𝛼𝑡is adaptively
+tracking the moving target 𝛼∗
+𝑡” and therefore make the OGD connection “only in passing”,
+developing alternative tools in Section 4. Do not cite a regret bound they deliberately declined
+to lean on.
+Stated limitations (Section 7)
+These are the project’s constraints, verbatim in substance:
+• Methods are specific to cases where 𝑌𝑡is revealed at each time point. “there are
+many settings in which we receive the response in a delayed fashion or in large batches.”
+• Theory in Section 4.2 is limited to a single data-generating model and the special case
+wherê 𝑄𝑡(⋅) is fixed across time.
+• 𝛾selection requires prior knowledge of shift size; determining 𝛾adaptively without prior
+knowledge is open.
+• “our experimental results are limited to just two domains.”
+Hardest structural problem in the design — stated plainly.
+ACI requires 𝑌𝑡, the ground truth, revealed at each step to compute err𝑡. In SMB under-
+writing:
+• Ground truth for an extracted field is revealed only if a human reviews it — i.e. only for
+items the routing policy chose to route.
+• Ground truth for a credit decision is revealed on a horizon of months to years (default
+/ no-default), and only for approved loans. This is the rejection-inference / selective-
+14
+Calibrated Abstention Agent — Research Extraction Synthesis
+labels problem, which no paper in this set addresses.
+The feedback loop is therefore delayed, partial, and selected by the system’s own routing
+policy — the last of which is a self-reinforcing bias, not merely missing data.
+Any claim to ACI’s distribution-free guarantee must specify which 𝑌𝑡is being used. The
+honest answer is likely: run ACI on the field-extraction layer, where reviewer correc-
+tions give fast and near-complete feedback on routed items, and do not claim ACI cover-
+age on case-level credit outcomes. Track this as an open problem in the writeup rather
+than papering over it. The authors themselves name delayed and batched response as
+unresolved.
+15
+Calibrated Abstention Agent — Research Extraction Synthesis
+2B. Kamath, Jia & Liang — Selective Question Answering under Domain
+Shift
+This paper is the closest methodological template in the entire set to what is
+being built, and is worth more than its position in the brief suggests. Its setting — mixed
+in-distribution and unknown-OOD test data, with abstention, where OOD data is partially
+answerable rather than impossible — is structurally identical to the project’s.
+Formal setup
+Three distributions:
+• 𝑝source — source distribution, from which a large training dataset 𝐷train is sampled
+• 𝑞unk — unknown OOD distribution, representing out-of-domain data encountered at test
+time
+• 𝑞known — known OOD distribution, from which the developer has a small dataset 𝐷calib
+The test set is drawn from a mixture:
+𝑝test = 𝛼𝑝source + (1 −𝛼) 𝑞unk,
+𝛼= 1
+2
+Selective prediction task: output (̂𝑦, 𝑐) witĥ 𝑦∈𝑌(𝑥) and confidence 𝑐∈ℝ; given threshold
+𝛾, predict̂ 𝑦if 𝑐≥𝛾, else abstain. Evaluation via risk-coverage AUC plus coverage at fixed
+accuracy (80%, 90%).
+Methods compared
+MaxProb:
+𝑐MaxProb = 𝑓(̂𝑦∣𝑥) =
+max
+𝑦′∈𝑌(𝑥) 𝑓(𝑦′ ∣𝑥)
+Test-time dropout (𝐾= 30 masks, following Dong et al. 2018), yielding prediction distribu-
+tionŝ 𝑝1, … ,̂ 𝑝𝐾:
+𝑐DropoutMean = 1
+𝐾
+𝐾
+∑
+𝑖=1̂
+𝑝𝑖(̂𝑦)
+𝑐DropoutVar = −Var[̂𝑝1(̂𝑦), … ,̂ 𝑝𝐾(̂𝑦)]
+Calibrator: a random forest binary classifier predicting whether the base model is correct
+on a given example, over seven features: passage length, length of predicted answer̂ 𝑦, and
+the top five softmax probabilities. Trained on 1,600 SQuAD + 1,600 known-OOD examples;
+400 + 400 held out for grid-search hyperparameter tuning; results averaged over 10 random
+splits. When training on 𝑝source only, 3,200 SQuAD train / 800 validation to equalize dataset
+sizes.
+Practical note the authors make: test-time dropout requires access to internal model repre-
+sentations (MaxProb needs only black-box access, e.g. API calls) and incurs a 𝐾-fold runtime
+increase.
+Headline results (no dropout)
+Method
+AUC ↓
+Cov @ Acc=80% ↑
+Cov @ Acc=90% ↑
+MaxProb (QA on
+SQuAD)
+20.54
+48.23
+21.07
+Calibrator (𝑝source
+only)
+19.27
+53.67
+26.68
+Calibrator (𝑝source +
+𝑞known)
+18.47
+56.06
+29.42
+16
+Calibrated Abstention Agent — Research Extraction Synthesis
+Method
+AUC ↓
+Cov @ Acc=80% ↑
+Cov @ Acc=90% ↑
+Best possible
+9.64
+74.92
+66.59
+MaxProb (QA on
+SQuAD + known
+OOD)
+19.61
+51.75
+22.76
+Best possible
+8.83
+76.80
+68.26
+With test-time dropout:
+Method
+AUC ↓
+Cov @ 80% ↑
+Cov @ 90% ↑
+Test-time dropout
+(–var)
+28.13
+24.50
+15.40
+Test-time dropout
+(mean)
+18.35
+57.49
+29.55
+Calibrator (𝑝source
+only)
+17.84
+58.35
+34.27
+Calibrator (𝑝source +
+𝑞known)
+17.31
+59.99
+34.99
+Negative variance across dropout masks serves poorly as a confidence estimate; the mean per-
+forms well. Best overall is the calibrator with dropout features (+3.9% coverage @80% over
+non-dropout calibrator), but dropout’s 𝐾-fold overhead led the authors to focus remaining
+analyses on non-dropout methods.
+The resource-allocation result
+“Training a calibrator is a better use of known OOD data than training a QA model.”
+The calibrator beats MaxProb-with-augmented-QA-model by 4.3 points coverage @80% accu-
+racy, 6.7 points @90%, and 1.1 AUC (95% CI [1.01, 1.69], paired bootstrap, 1000 samples).
+It also beats the calibrator trained on 𝑝source alone by 2.4% coverage @80%.
+Crucially this holds across all amounts of known OOD data (their Figure 2): at every point
+on the curve from 0 to 10,000 OOD examples, using the data to train and validate the calibrator
+(80–20 split) beat adding all of it to QA training and using MaxProb.
+Translation: when a small labeled sample arrives from a new industry vertical or document
+format, spend it on the confidence/routing layer, not on retraining the extractor. That is a
+cheap, empirically grounded operational policy with a citation behind it. (But see Section 5.9
+below, which bounds this claim.)
+The overconfidence mechanism (Section 5.3)
+MaxProb values are generally lower for OOD examples than in-domain examples, consistent
+with previously reported trends (Hendrycks & Gimpel 2017; Liang et al. 2018) — but they
+are still too high. Calibration plots show MaxProb is underconfident in-domain and overcon-
+fident out-of-domain.
+Concretely, from their Figure 3b: at MaxProb = 0.6, the model is about 80% likely to
+be correct if the question came from SQuAD (in-domain), and about 45% likely to be
+correct if it was OOD. When in-domain and OOD examples are mixed at test time, MaxProb
+therefore does not abstain enough on the OOD examples. The calibrator shows a smaller in-
+domain/OOD gap, indicating improved calibration, despite not being trained on any unknown
+OOD data.
+An important subtlety they document and resolve: the in-domain underconfidence is partly
+an evaluation artifact — SQuAD provides one answer at training time but accepts multiple at
+17
+Calibrated Abstention Agent — Research Extraction Synthesis
+test time. Restricting test-time evaluation to a single correct answer makes MaxProb well-
+calibrated in-domain while it remains overconfident out-of-domain (Appendix A.4, Fig-
+ures 6–7). So the overconfidence finding is real, not an artifact. They decline to retain the
+restriction because EM over multiple spans is the better metric.
+Also stated precisely, and worth quoting correctly: “miscalibration out-of-domain does not
+imply poor selective prediction on OOD data, but does imply poor selective prediction in our
+mixture setting.” The harm is relative miscalibration across the mixture, not absolute miscal-
+ibration on either component.
+Context they provide:
+the finding that BERT is not overconfident in-domain aligns with
+Hendrycks et al. (2019a) — pre-trained models are better calibrated than models trained
+from scratch, as they can be trained for fewer epochs (their QA model runs 2 epochs, standard
+for BERT). And with Ovadia et al. (2019), who find vision and text-classification models poorly
+calibrated out-of-domain even when well-calibrated in-domain.
+Direct answer to the Track 2 gap — and it is a negative result
+The brief’s Track 2 gap asks for work on “detecting when a case is out-of-distribution versus
+merely low-confidence (these require different responses).” This paper tested exactly that and
+the answer is unfavorable.
+Appendix A.3: they trained an outlier detector to predict whether an input came from the
+in-domain dataset or is OOD, using 𝑃(in-domain) for selective prediction. Same model class,
+same training data (𝑝source and 𝑞known mixture), same features as the calibrator. Result:
+Method
+AUC ↓
+Cov @ 80%
+Cov @ 90%
+Outlier detector
+24.23
+37.91%
+14.26%
+MaxProb (for reference)
+20.54
+48.23
+21.07
+Calibrator
+18.47
+56.06
+29.42
+The outlier detector is worse than plain MaxProb. Their explanation: “this approach is unable
+to correctly identify the OOD examples that the QA model would get correct.” Abstaining on
+all OOD examples would be “overly conservative” since OOD accuracy is 40–50%, not 0%.
+Load-bearing finding for the architecture. Do not route on OOD-ness.
+OOD detection is a strictly worse routing signal than raw confidence, because it discards
+the model’s ability to be right on unusual-but-tractable cases. An SMB in a new industry
+whose bank statements the extractor handles perfectly well should not be routed to a
+reviewer merely for being new — that burns reviewer capacity for zero risk reduction
+and, at scale, makes the coverage target unreachable.
+If the current design has an ”OOD →escalate” branch, this is the paper that says redesign
+it. Route on calibrated predicted correctness. Use OOD-ness at most as a feature
+feeding that calibrator, never as a parallel escalation trigger.
+Non-trivial OOD accuracy (Table 3) — the fact motivating the above
+Exact match accuracy for all six QA models on all six test sets:
+Train ↓/
+Test →
+SQuAD
+TriviaQA
+HotpotQA
+NewsQA
+NQ
+SearchQA
+SQuAD
+only
+80.95
+48.43
+44.88
+40.45
+42.78
+17.98
+SQuAD +
+2K
+TriviaQA
+81.48
+(50.50)
+43.95
+39.15
+47.05
+25.23
+18
+Calibrated Abstention Agent — Research Extraction Synthesis
+Train ↓/
+Test →
+SQuAD
+TriviaQA
+HotpotQA
+NewsQA
+NQ
+SearchQA
+SQuAD +
+2K
+HotpotQA
+81.15
+49.35
+(53.60)
+39.85
+48.18
+24.40
+SQuAD +
+2K
+NewsQA
+81.50
+50.18
+42.88
+(44.00)
+47.08
+20.40
+SQuAD +
+2K Natu-
+ralQues-
+tions
+81.48
+51.43
+44.38
+40.90
+(54.85)
+25.95
+SQuAD +
+2K
+SearchQA
+81.60
+56.58
+44.30
+40.15
+47.05
+(59.80)
+Parenthesized entries are the diagonal (trained on that dataset).
+Training on 2,000 𝑞known
+examples improves accuracy on data from that same dataset but generally does not improve
+accuracy on data from 𝑞unk.
+Feature ablation (Table 4) — what the calibrator’s features should be
+Removed
+AUC ↓
+Cov @ 80%
+Cov @ 90%
+All features (baseline)
+18.47
+56.06
+29.42
+– Top softmax probability
+18.61
+55.46
+29.27
+– 2nd:5th highest softmax probs
+19.11
+54.29
+26.67
+– All softmax probabilities
+26.41
+24.57
+0.08
+– Context length
+19.79
+51.73
+24.24
+– Prediction length
+18.6
+55.67
+29.30
+Softmax probabilities are load-bearing — removing all of them is catastrophic (coverage @90%
+collapses to 0.08). Context length matters substantially. The authors’ rationale: longer
+passages have more answer candidates, and passage length differs greatly between different
+domains.
+The project analogues are free and should be included: document page count, number of
+transactions in a statement, statement period length, table row counts, count of distinct source
+documents.
+Two further findings from Appendix A.2 worth heeding:
+• Question length and passage–question word overlap did not improve validation per-
+formance. Hypothesis given: such features “may provide misleading information about
+a given example, e.g., a long question in SQuAD may provide more opportunities for
+alignment with the paragraph, making it more likely to be answered correctly, but a
+long question in HotpotQA may contain a conjunction, which is difficult for the SQuAD-
+trained model to extrapolate to.” The lesson is that a feature’s meaning can invert across
+domains — exactly the risk with cross-industry SMB features.
+• MLP and logistic regression were both slightly worse than Random Forest.
+Extrapolation between datasets (Figure 4)
+The calibrator outperforms MaxProb over all 20 (𝑞known, 𝑞unk) combinations, with larger
+gains when 𝑞known and 𝑞unk are similar. Reported as percent AUC improvement relative to
+total possible improvement:
+19
+Calibrated Abstention Agent — Research Extraction Synthesis
+• TriviaQA ↔SearchQA help each other most (36.66 and 33.64 respectively) — both use
+web snippets as passages.
+• NewsQA, the only other non-Wikipedia dataset, is also helpful for both (33.05 to TriviaQA,
+31.83 to SearchQA).
+• No dataset significantly helps generalization to HotpotQA (best 9.93), attributed
+to HotpotQA’s unique focus on multi-hop questions.
+Implication: the calibrator’s transfer is governed by structural similarity of documents, not
+surface similarity. A known-OOD sample of restaurant bank statements will help calibrate
+retail bank statements; it will not help on tax returns. Budget known-OOD acquisition per
+document archetype, and expect at least one HotpotQA-like archetype — most likely multi-
+document derived metrics — where nothing transfers and dedicated data is unavoidable.
+Mixture ratio sensitivity (Section 5.8, Figure 5)
+As 𝛼ranges from all-SQuAD to all-OOD, the calibrator-minus-MaxProb AUC difference is ap-
+proximately 0 at both ends and maximal in the middle (peak roughly 1.75 AUC around
+𝛼≈0.3–0.4). Their conclusion: MaxProb performs well in homogeneous settings; the cali-
+brator’s advantage exists specifically because the test stream is mixed.
+The production stream is permanently mixed — familiar industries alongside novel ones,
+familiar formats alongside new bank templates, every day. This is a direct argument that the
+calibrator layer is not optional overhead: it earns its keep precisely and only in the regime the
+system will operate in.
+Access to 𝑞unk (Section 5.9) — the honesty check
+If samples from the true test distribution are available: training the QA model on that OOD
+data and using MaxProb achieves average AUC 16.35, whereas training a calibrator achieves
+17.87. The finding reverses. “Unsurprisingly, training on examples similar to the test data
+is helpful. We do not focus on this setting, as our goal is to build selective QA models for
+unknown distributions.”
+Read this against the Track 2 architecture. If deployment includes a lag during which real
+labeled examples accumulate from the new distribution — which it will, since reviewers
+are correcting fields continuously — then retraining the extractor beats calibrating.
+The calibrator-first result holds only while 𝑞unk is genuinely unknown. Scope the claim to
+the unknown-distribution regime, or the first reviewer who reads Section 5.9 will scope
+it for you.
+Unanswerable questions are a different task (Section 5.7)
+Two experiments, both negative:
+• QA model trained on SQuAD 2.0 (which adds unanswerable questions): calibrator gets
+18.38 AUC vs. 18.47 for the SQuAD 1.1 model — no meaningful gain. MaxProb similarly
+flat (20.81 vs. 20.54).
+• Using selective-prediction confidence to identify unanswerable questions (picking 𝛾′ to
+maximize SQuAD 2.0 EM): calibrator 54.0 EM, MaxProb 53.1 EM, versus a majority
+baseline of 48.9 EM. Both only weakly beat majority.
+Conclusion: “identifying unanswerable questions is a very different task from knowing when
+to abstain under distribution shift.” Their setting focuses on test data dissimilar to training
+data but on which the model can still answer a non-trivial fraction; unanswerable questions
+in SQuAD 2.0 look very similar to answerable ones, but a SQuAD 1.1 model gets all of them
+wrong.
+Maps directly onto the project: “this field is absent from the document” (extraction refusal)
+and “I extracted a value but may be wrong” (calibrated abstention) are different tasks re-
+quiring different mechanisms. Do not let one classifier serve both — the evidence says it
+will do neither well.
+20
+Calibrated Abstention Agent — Research Extraction Synthesis
+Error analysis (Section 5.6) — reusable methodology
+Protocol: for two (𝑞known, 𝑞unk) pairs (one similar, one dissimilar), sample 100 overconfident
+errors (system confidently gave a wrong answer) and 100 underconfident errors (system ab-
+stained but would have been correct), drawn from the 1000 most extreme of each.
+Findings worth carrying over:
+• NewsQA →TriviaQA: 62% of overconfidence errors were valid alternate answers
+or span mismatches — the model predicts a slightly different span than gold and should
+be considered correct. “thus the calibrator was not truly overconfident. This points to the
+need to improve QA evaluation metrics (Chen et al., 2019).” 45% of underconfidence er-
+rors involved coreference over long distances; another 25% were cases with insufficient
+evidence in the paragraph (TriviaQA was built by distant supervision), so low confidence
+was correct.
+• NewsQA →HotpotQA: 34% of overconfidence errors from alternate answers or span
+mismatch. On 65% of underconfidence errors the correct answer was the only plausible
+span, suggesting the model guessed via dataset artifacts — so “the calibrator’s lack of
+confidence is therefore justifiable.”
+Build this into the evaluation before reporting any numbers. A substantial fraction
+of apparent ”extraction errors” will be format or normalization mismatches — 1,234.00
+versus 1234, fiscal versus calendar period labels, gross versus net presentation, parenthe-
+sized negatives — that a human reviewer would call correct.
+If these are not separated out, the project will systematically understate calibration qual-
+ity and overstate error rates. In this paper the effect was 62% of the worst overconfidence
+errors on one dataset pair. That is not a rounding artifact; it is most of the error mass.
+21
+Calibrated Abstention Agent — Research Extraction Synthesis
+Track 3 — Uncertainty Quantification & Factuality for LLMs
+Mohri & Hashimoto — Language Models with Conformal Factuality
+Guarantees
+The central insight
+Each LM output defines an uncertainty set via entailment, so correctness is equivalent
+to coverage.
+Conformal prediction then defines a back-off algorithm that makes outputs
+progressively less specific until they are correct with high probability.
+The authors’ framing of why prior conformal-for-LLM work stalled: scoring the entire output
+space is intractable, and the resulting confidence sets are so large as to be unusable. Defin-
+ing conformal sets implicitly via entailment relations sidesteps both — uncountably large un-
+certainty sets are never instantiated, and the guarantees land directly on model outputs in
+interpretable form.
+Entailment operator
+𝐸(𝑦) ∶= {𝑦′ ∈𝒴∶𝑦′ ⇒𝑦}
+so that 𝑦∗∈𝐸(𝑦) holds if and only if 𝑦∗⇒𝑦(i.e. output 𝑦is correct with respect to reference
+knowledge 𝑦∗). The goal
+𝑃(𝑦is factual and correct) ≥1 −𝛼
+connects to the standard inference problem 𝑃(𝑌∗
+𝑛+1 ∈𝐶(𝑋𝑛+1)) ≥1 −𝛼by substituting
+𝐶(𝑋𝑛+1) = 𝐸(ℒ(𝑋𝑛+1)) — the event “containing 𝑌∗in 𝐸(ℒ(𝑋))” is equivalent to the event
+“ℒ(𝑋) is correct according to 𝑌∗.”
+The reference 𝑦∗can be set broadly (e.g. “Wikipedia pages related to 𝑥”, or “all facts accessible
+via Google”), and guarantees hold for any definition of entailment — expert judgment, crowd
+workers, automated fact checker — as long as a binary entailment oracle is available and
+∀𝑦∈𝒴, 𝑦⇒∅.
+Score function (Eq. 4)
+𝑟(𝑥, 𝑦∗) ∶= inf{𝑡∈𝑇∶∀𝑗≥𝑡, 𝑦∗∈𝐸(𝐹𝑗(𝑥))}
+The ∀𝑗≥𝑡clause — the minimum strictly safe threshold — is their modification relative to
+Gupta et al. (2022). It is necessary because they do not require nestedness (which in Gupta
+et al. implicitly encoded this condition).
+Algorithm 1 (𝛼-conformal-factuality)
+Inputs: base LM L, confidence alpha, calibration data {X_i, Y*_i} (i=1..n),
+back-off mechanism {F_t}
+for i = 1 to n:
+r(X_i, Y*_i) <- inf{ t in T : for all j >= t, y* in E(F_j(x, L(x))) }
+q_hat_alpha <- ceil((n+1)(1-alpha))/n
+-th quantile of {r(X_i, Y*_i)}
+Output: conformally factual
+L_bar(x) := F_{q_hat_alpha}(x, L(x))
+22
+Calibrated Abstention Agent — Research Extraction Synthesis
+Theorem 4.1
+Let {𝑋𝑖, 𝑌∗
+𝑖}𝑛+1
+𝑖=1 be exchangeable, 𝐹𝑡sound, and̂ 𝑞𝛼the ⌈(𝑛+1)(1−𝛼)⌉
+𝑛
+-th quantile of the scores
+{𝑟(𝑋𝑖, 𝑌∗
+𝑖)}𝑛
+𝑖=1 (assumed distinct WLOG). Then for 𝛼∈[
+1
+𝑛+1, 1]:
+𝑃(𝑌∗
+𝑛+1 ∈𝐸(𝐹̂𝑞𝛼(𝑋𝑛+1))) ≥1 −𝛼
+If 𝐸(𝐹𝑡(⋅)) follows the nested property, the upper bound also holds:
+1 −𝛼+
+1
+𝑛+ 1 ≥𝑃(𝑌∗
+𝑛+1 ∈𝐸(𝐹̂𝑞𝛼(𝑋𝑛+1)))
+𝐹𝑡is sound if 𝐹sup 𝑇(𝑥, 𝑦0) = ∅, where ∅is an output abstaining from any claim.
+Sub-claim implementation (Eq. 5)
+Let 𝑆∶𝒴↦2𝒴separate an output into sub-claims, 𝑀∶2𝒴↦𝒴merge them (with 𝑀(∅) = ∅),
+and 𝑠∶2𝒴× 𝒴↦ℝscore sub-claims (larger = more likely factual):
+𝐹𝑡(𝑥) = 𝑀({𝑐∈(𝑆∘ℒ)(𝑥) ∶𝑠((𝑆∘ℒ)(𝑥), 𝑐) ≥𝑡})
+This implementation is sound, as no sub-claims are accepted for large enough 𝑡. The motivat-
+ing observation: “the LM often confidently knows that some subparts of its answer are correct,
+so it often suffices to remove the ‘uncertain’ subparts to balance correctness and usefulness.”
+Assumption 5.1 and Proposition 5.2 — the annotation-cost result
+Assumption 5.1. For any 𝑦∗∈𝒴and {𝑐𝑖}𝑛
+𝑖=1 ∈2𝒴:
+{𝑦∗⇒𝑀({𝑐𝑖}𝑛
+𝑖=1)} ⟺{∀𝑖∈[𝑛], 𝑦∗⇒𝑐𝑖}
+equivalently
+𝐸(𝑀({𝑐𝑖}𝑛
+𝑖=1)) =
+𝑛
+⋂
+𝑖=1
+𝐸(𝑐𝑖)
+This holds under the natural condition that the merger 𝑀neither adds nor removes sub-claims,
+thus preserving entailment relations.
+Proposition 5.2. With 𝐴𝑡(𝑥) ∶= {𝑐∈(𝑆∘ℒ)(𝑥) ∶𝑠((𝑆∘ℒ)(𝑥), 𝑐) ≥𝑡}, under Assumption
+5.1:
+𝑟(𝑥, 𝑦∗) = inf{𝑡∈𝑇∶∀𝑗≥𝑡, ∀𝑐∈𝐴𝑡(𝑥), 𝑦∗⇒𝑐}
+The consequence, quoted: “one only has to call the entailment oracle on the sub-claims ap-
+pearing in the original output, which can be significantly cheaper than calling the entailment
+oracle on the merger of every possible set of accepted sub-claims.”
+For this project: a reviewer verifies each extracted field once, not every possible combina-
+tion of retained fields. That is the difference between a feasible and an infeasible calibration
+budget — linear rather than combinatorial in field count. Assumption 5.1 also delivers the
+Theorem 4.1 upper bound, since 𝐸(𝐹𝑡(𝑥)) = ⋂𝑐∈𝐴𝑡(𝑥) 𝐸(𝑐) and an intersection grows as sets
+are removed, giving nestedness.
+Sub-claim scoring functions evaluated
+23
+Calibrated Abstention Agent — Research Extraction Synthesis
+Function
+Definition
+Random
+𝑠𝑟({𝑐𝑖}, 𝑐𝑗) = 𝑋𝑗, 𝑋𝑗∼𝒩(0, 1)
+Ordinal
+𝑠𝑏({𝑐𝑖}, 𝑐𝑗) = 𝑛−𝑗(position of appearance
+in output)
+GPT-4 confidence
+Prompt asks directly for confidence;
+anchored at 1 = obvious facts (“The earth is
+round”, “1+1=2”), 0 = very obscure
+(birthdays of non-notable people)
+Frequency
+Sample 5 alternate outputs at temperature
+1.0; count (with GPT-4) how many times the
+sub-claim appears. Self-consistency, related
+to SelfCheckGPT. Ties broken by GPT-4
+confidence score
+Oracle
+𝑠𝑜({𝑐𝑖}, 𝑐𝑗) = 𝟙𝑦∗⇒𝑐𝑗— upper bound; not
+usable without 𝑦∗
+Since the guarantees require no ties among scores 𝑟, tie-breaking uses 𝒩(0, 0.001) noise, held
+consistent across scoring functions.
+Results
+Implementation uses GPT-4 for ℒ, 𝑆, and 𝑀(gpt-4 endpoint, max_tokens 1000, temperature 0.0).
+Datasets: FActScore biography generation, Natural Questions (long-form), MATH. First 50
+inputs per dataset, manually annotated with a 4-way label (Factual, Subjective, Unverifiable,
+False) — Factual and Subjective counted as entailed. The authors annotated themselves after
+finding “extensive errors” in crowd-worker factuality evaluation, and all annotations were
+done before running experiments.
+Base GPT-4 to conformal factuality, with frequency scoring:
+Dataset
+Base factuality
+Achieved
+Sub-claims retained
+FActScore
+$∼$25–30%
+$∼$80%
+about half kept
+Natural Questions
+$∼$78%
+$∼$93%
+$∼$75% kept
+(one-quarter
+removed)
+MATH
+$∼$75%
+$∼$95%
+$∼$90% kept (only
+$∼$10% removed)
+Empirical factuality tracks the target tightly (their Figure 3), within Theorem 4.1’s bounds,
+verified by randomly splitting each dataset in half 1000 times, fitting a threshold on one half
+and measuring factuality on the other.
+Ranking of scoring functions: frequency > GPT-4 confidence > ordinal > random, with
+oracle as ceiling. Analyzing the 𝛼= 0.2 FActScore model, most examples have about 50% of
+claims removed — “leading to a less detailed but still informative response in most cases” —
+so the method is “far from simply abstaining on difficult examples.”
+Ranking-based variants (Appendix C): any scoring function 𝑠transforms into a ranking-
+based one via 𝑓𝑠({𝑐𝑖}𝑛
+𝑖=1, 𝑐𝑗)/𝑛, where 𝑓𝑠returns the rank of 𝑠among all sub-claim scores in
+increasing order (dividing by 𝑛accounts for varying output length). These remove a higher
+percent of sub-claims but with smaller standard deviations.
+Relevant if uniform behavior across cases is preferable to best-average behavior.
+Regulators generally prefer predictable. Worth testing both.
+24
+Calibrated Abstention Agent — Research Extraction Synthesis
+Partial entailment (Section 5.1, Corollary 5.3)
+The piece that maps most directly onto derived metrics. Let 𝑇𝑦∗∶2𝒴↦[0, 1] indicate the
+entailed fraction of a set of sub-claims:
+𝑇𝑦∗({𝑠𝑖}𝑚
+𝑖=1) ∶= 1
+𝑚
+𝑚
+∑
+𝑖=1
+𝟙𝑦∗⇒𝑠𝑖
+Define a new score with acceptable entailment level 𝑎∈[0, 1]:
+𝑟𝑎(𝑥, 𝑦∗) ∶= inf{𝑡∈𝑇∶∀𝑗≥𝑡, 𝑇𝑦∗(𝐴𝑡(𝑥)) ≥𝑎}
+Note 𝑟1(⋅) = 𝑟(⋅) as defined in Eq. 4.
+Corollary 5.3. Witĥ 𝑞𝛼the ⌈(𝑛+1)(1−𝑎)⌉
+𝑛
+quantile of the scores 𝑟𝑎(𝑋𝑖, 𝑌∗
+𝑖) and 𝐹𝑡implemented
+as in Eq. 5:
+𝑃(𝑇𝑌∗
+𝑛+1(𝐴̂𝑞𝛼(𝑋𝑛+1)) ≥𝑎) ≥1 −𝛼
+This is only a lower bound, not an equivalence, “because we could have a safe threshold̂ 𝑞𝛼
+that is less than 𝑟𝑎,test. That is, 𝑇𝑦∗(𝐴𝑡(𝑥)) is not monotonically increasing with 𝑡since one
+could remove sub-claims that are entailed and fall below 𝑎.”
+Empirically the authors found gains from allowing partial factuality to be small (Ap-
+pendix B; 𝑎= 0.7 FActScore, 𝑎= 0.9 NQ, 𝑎= 0.8 MATH). Do not build heavily on this branch
+without re-testing in the numeric setting.
+The MATH result — strongest evidence for multi-step numeric derivation, and its
+limits
+Their Table 1 example: evaluating 𝑖5 + 𝑖−25 + 𝑖45. GPT-4 computed two of the three expres-
+sions correctly but botched one, producing an incorrect final answer. Conformal factuality
+removed the incorrect claim, leaving a partial proof presented to the user with a
+single remaining step.
+Table 5 shows the pattern more broadly. For a treeks/squigs/goolees word problem, the con-
+formal output retains the variable definitions, both derived equations, and the substitution —
+then stops before the final incorrect arithmetic, ending at “This equation represents the rela-
+tionship between the weights of treeks, squigs, and goolees.” For correct derivations (vertical
+asymptotes, distance formula, polynomial addition) the full chain is retained.
+This is genuinely the target pattern — abstain on the specific derivation node that is
+unreliable, hand the reviewer a partially completed derivation rather than rejecting the
+whole case. But be precise about what it demonstrates.
+The sub-claims here are reasoning steps in a self-contained math problem with a known
+ground-truth answer. The entailment oracle checks each step against 𝑦∗independently.
+There is no propagation: the framework does not model how uncertainty in step 1’s output
+inflates uncertainty in step 3.
+The project’s derived metrics are computed from extracted values whose own uncertainty
+propagates — field confidence →derived-metric confidence →case-decision confidence.
+Hierarchical uncertainty propagation is not solved by this paper and is not solved
+by any paper in this set.
+That is the genuine novel contribution if delivered. It is also the component most likely to
+be wrong. Flag it as such in the writeup rather than implying the MATH result covers it.
+25
+Calibrated Abstention Agent — Research Extraction Synthesis
+Limitations stated by the authors — read as the threat model
+• Coverage is not conditional. “we do not have a guarantee on the conformal set associ-
+ated with every input, but instead, we have coverage on average over inputs. This means
+that when the calibration set is defined across multiple tasks or users, the factuality of
+any one domain or user may differ significantly from the target factuality level.”
+• Marginal over the calibration draw. In settings with a small, fixed calibration dataset
+whose threshold is reused, realized coverage may deviate.
+They quantify it: beyond
+the marginal guarantee, requiring high-probability guarantees over the calibration set
+reveals additional variation in empirical factuality with standard deviation ≈0.09,
+expected to shrink to zero as the calibration set grows.
+• Shift breaks the threshold. “in real-world scenarios where distributions change, the
+threshold computed on past calibration data can fail to maintain the desired coverage.”
+The first limitation is a fair-lending problem, not merely a statistical one.
+Marginal coverage across the calibration set means a 90% factuality target could realize
+as 95% for restaurant loans and 78% for construction loans. Worse, it could differ system-
+atically across segments correlated with protected classes — geography, business age,
+industry composition all correlate with race and national origin in SMB lending.
+Under ECOA / Regulation B, ”90% on average across the portfolio” is not obviously a
+defensible answer when a segment sits at 78%. Combine this with the Mozannar fairness-
+does-not-compose result and the exposure compounds.
+The brief cites Gibbs, Cherian & Candès, ”Conformal prediction with conditional
+guarantees” (2024) as a Track 3 supporting reference. That citation is doing far more
+work than the brief credits. Promote it to a core dependency: conditional coverage
+is likely a requirement here, not an enhancement. Note the 𝜎≈0.09 figure is the au-
+thors’ own measurement of how far realized factuality wanders — roughly nine percent-
+age points — which is not a margin that survives a fair-lending review.
+The authors’ own future-work pointer
+Their closing, quoted: “our work is the first step to enabling the application of many sophisti-
+cated conformal prediction algorithms in improving the outputs of language models — includ-
+ing those that address challenges such as distribution shifts”, citing Gibbs et al. (2023), Ding
+et al. (2023), Barber et al. (2023), Tibshirani et al. (2020), Vovk (2012).
+The Track 2 + Track 3 composition — ACI’s online update wrapped around con-
+formal factuality’s entailment sets — is explicitly named as future work by these
+authors and, as far as these six papers show, has not been done.
+That is a real, defensible novelty claim, and the only one in this set worth staking the
+project’s contribution on. State it precisely:
+”Mohri & Hashimoto (2024) identify distribution-shift-robust conformal meth-
+ods as future work; we instantiate that composition for numeric extraction un-
+der non-exchangeable arrival.”
+Not: ”we invent conformal abstention for LLMs.” Every component exists. The composi-
+tion is the contribution, and it is a sufficient one — provided the 𝑌𝑡-revelation problem
+flagged in Track 2 is solved or honestly scoped.
+26
+Calibrated Abstention Agent — Research Extraction Synthesis
+Track 5 — Financial Document & Transaction Fraud Detec-
+tion
+Beneish — The Detection of Earnings Manipulation
+Model and sample
+𝑀𝑖= 𝛽′𝑋𝑖+̃ 𝜀𝑖
+with 𝑀dichotomous (1 = manipulator, 0 otherwise), 𝑋the matrix of explanatory variables,̃ 𝜀
+a vector of residuals.
+Sample construction: 74 manipulators total. 49 identified from SEC Accounting and Auditing
+Enforcement Releases (AAERs) #132–#502 issued 1987–1993, after eliminating financial in-
+stitutions, auditing actions, 10-Q violations resolved in annual filings, and companies lacking
+financial data. 25 from a LEXIS-NEXIS media search (Jan 1987–Apr 1993), which required
+ex post evidence of manipulation — companies had to restate earnings to comply with
+GAAP at auditor request or following internal investigation. This criterion excluded firms that
+managed earnings within GAAP and reduced the chance of classifying firms as manipulators
+on the basis of self-serving rumor.
+Matched to 2,332 Compustat non-manipulators by two-digit SIC industry and year, 1982–92.
+Estimation sample 1982–88 (50 manipulators, 1,708 controls); holdout 1989–92 (24 manipu-
+lators, 624 controls).
+Manipulator profile in the year prior to public disclosure:
+smaller (median total assets
+$43.20M vs $95.84M), less profitable (median ROA 3% vs 5%), more leveraged (median
+debt/assets 0.58 vs 0.52), and markedly higher growth (median sales growth 34% vs
+9%, 𝑝= 0.000).
+Growth appears exogenous to manipulation — in the year prior to the
+manipulation year, manipulators already grew faster (29.4% vs 10.6%).
+The eight variables (exact definitions)
+Var
+Definition
+DSRI
+Receivables𝑡/Sales𝑡
+Receivables𝑡−1/Sales𝑡−1
+GMI
+(Sales𝑡−1 −COGS𝑡−1)/Sales𝑡−1
+(Sales𝑡−COGS𝑡)/Sales𝑡
+AQI
+[1 −(CA𝑡+ PP&E𝑡)/TA𝑡]
+[1 −(CA𝑡−1 + PP&E𝑡−1)/TA𝑡−1]
+SGI
+Sales𝑡/Sales𝑡−1
+DEPI
+Dep𝑡−1/(Dep𝑡−1 + PP&E𝑡−1)
+Dep𝑡/(Dep𝑡+ PP&E𝑡)
+SGAI
+SG&A𝑡/Sales𝑡
+SG&A𝑡−1/Sales𝑡−1
+LVGI
+(LTD𝑡+ CL𝑡)/TA𝑡
+(LTD𝑡−1 + CL𝑡−1)/TA𝑡−1
+TATA
+ΔCA −ΔCash −(ΔCL −ΔCurrMatLTD −ΔTaxPayable)
+Total Assets
+Seven of the eight are designated indexes: they compare a financial-statement measure in
+the year of the first reporting violation against the prior year, capturing distortion rather
+than level.
+DSRI gauges whether receivables and revenues are in or out of balance; AQI
+measures change in asset realization risk (values > 1 indicate increased cost deferral); DEPI
+> 1 indicates the depreciation rate has slowed, raising the possibility of upward-revised useful
+lives; TATA proxies the extent to which cash underlay reported earnings.
+27
+Calibrated Abstention Agent — Research Extraction Synthesis
+Coefficients (unweighted probit; 𝑡-statistics in parentheses)
+Score = −4.840 + 0.920 DSRI + 0.528 GMI + 0.404 AQI + 0.892 SGI
++ 0.115 DEPI −0.172 SGAI + 4.679 TATA −0.327 LVGI
+(−11.01), (6.02), (2.20), (3.20), (5.39), (0.70), (−0.71), (3.73), (−1.22). Pseudo-𝑅2 = 0.371;
+likelihood ratio 𝜒2 = 129.2 (𝑝= 0.00).
+WESML probit (weighted exogenous sample maximum likelihood, correcting for state-based
+oversampling):
+Score = −4.954 + 0.789 DSRI + 0.459 GMI + 0.306 AQI + 0.701 SGI
++ 0.033 DEPI −0.006 SGAI + 3.937 TATA −0.264 LVGI
+Pseudo-𝑅2 = 0.306; 𝜒2 = 34.5. Assumed prior probability of manipulation: 0.0069 (WESML,
+= 50/7,231) versus 0.02844 implicit in unweighted probit (= 50/1,758).
+Only five of eight variables are significant
+DEPI, SGAI, and LVGI are not significant.
+Beneish’s own explanation: these may be as-
+sociated with earnings management rather than manipulation. For example, a change from
+accelerated to straight-line depreciation raises DEPI but is management, not manipulation, so
+such firms were never in the manipulator sample. For LVGI, incentives to comply with debt
+covenants may be insufficient to induce manipulation because noncompliance costs are small
+(Beneish & Press estimate 1–2% of equity market value).
+The stated conclusion: “the probability of manipulation increases with (1) unusual increases
+in receivables, (2) deteriorating gross margins, (3) decreasing asset quality, (4) sales growth,
+and (5) increasing accruals.”
+Preprocessing details required for reimplementation
+• Winsorize at the 1st and 99th percentiles for each variable (the year-over-year change
+structure creates a small-denominator problem).
+• AQI set to 1 (its neutral value) when the denominator is zero — i.e. when prior-year
+assets consisted exclusively of current assets and PP&E — rather than treating the ob-
+servation as missing.
+• DEPI and SGAI set to 1 when components (amortization of intangibles, SG&A) are
+unavailable. Estimating with and without those observations yielded similar results.
+Cost-sensitive cutoffs — the routing-threshold methodology
+Expected cost of misclassification:
+ECM = 𝑃(𝑀) 𝑃𝐼𝐶𝐼+ [1 −𝑃(𝑀)] 𝑃𝐼𝐼𝐶𝐼𝐼
+where 𝑃(𝑀) is the prior probability of encountering manipulators, 𝑃𝐼and 𝑃𝐼𝐼the conditional
+probabilities of Type I and Type II errors, 𝐶𝐼and 𝐶𝐼𝐼their costs. Cutoffs are chosen at each
+cost ratio to minimize ECM.
+Unweighted probit, holdout sample:
+𝐶𝐼∶𝐶𝐼𝐼
+Cutoff prob.
+Type I
+Type II
+Cost vs. naive
+1:1
+1.0000
+1.0000
+0.0000
+1.000
+10:1
+0.0685
+0.6250
+0.0353
+0.746
+20:1
+0.0376
+0.5000
+0.0721
+0.623
+30:1
+0.0376
+0.5000
+0.0721
+0.582
+40:1
+0.0294
+0.4583
+0.0913
+0.628*
+28
+Calibrated Abstention Agent — Research Extraction Synthesis
+𝐶𝐼∶𝐶𝐼𝐼
+Cutoff prob.
+Type I
+Type II
+Cost vs. naive
+60:1
+0.0294
+0.4583
+0.0913
+0.896*
+100:1
+0.0294
+0.4583
+0.0913
+1.535*
+* At 40:1 and beyond, the naive strategy switches to classifying all companies as manipulators,
+because the cost ratio exceeds the inverse population proportion (> 1/0.02844). Beyond 40:1
+the model becomes worse than naive (1.535 at 100:1).
+Beneish’s derivation of the relevant investor cost ratio: the typical manipulator loses approx-
+imately 40% of market value on a risk-adjusted basis in the quarter containing discovery;
+assuming a typical firm’s equity appreciates 1–2% per quarter, 20–40 non-manipulators are
+needed to offset a single manipulator. Hence the relevant range for investors is 20:1 to
+30:1. Regulators, balancing investor protection against the cost of falsely accusing a firm,
+plausibly have higher Type II costs than investors.
+Honest performance summary
+Holdout sample: the model correctly identifies 37.5% to 56.1% of manipulators while incor-
+rectly classifying 3.5% to 9.1% of non-manipulators, across the relevant cost range. Esti-
+mation sample: 58–76% of manipulators correctly identified, 7.6–17.5% of non-manipulators
+incorrectly flagged.
+The model is cost-effective relative to a naive all-clean strategy when 𝐶𝐼> 𝐶𝐼𝐼. But, in the
+author’s own words: “although the model identifies potential manipulators, it does so with
+large error rates in the range of error costs that are likely to be of most relevance to investors”
+and “its large rate of classification errors makes further investigation of the screening results
+important.”
+Robustness checks performed: no Pearson correlation among the 36 pairs exceeded 0.25;
+dropping DEPI, LVGI, SGAI, TATA one at a time and in combination gave similar results; six
+different prior probabilities tested; 100 random estimation/holdout resamples (50 manipula-
+tors + 1,500 controls each) confirmed insensitivity to sample choice.
+Limitations stated by Beneish — three are disqualifying as-is
+1. “One limitation of the model was that it is estimated using financial information
+for publicly traded companies.
+Therefore, it cannot be reliably used to study
+privately held companies.”
+2. The sample involved earnings overstatement rather than understatement; “the model
+cannot be reliably used to study companies operating in circumstances that are conducive
+to decreasing earnings.”
+3. The sample consists of firms whose manipulation was publicly discovered — “Such com-
+panies probably represent the upper tail of the distribution of companies that seek to
+influence their reported earnings — successful and undiscovered manipulators undoubt-
+edly exist.”
+The control sample of 2,332 may itself contain undetected manipulators,
+biasing tests against discrimination.
+4. Distortions may have non-manipulation causes: “a material acquisition during the period
+examined, a material shift in the company’s value-maximizing strategy, or a significant
+change in the company’s economic environment.”
+Direct challenge to the Track 5 design.
+The project is SMB underwriting. The M-Score is estimated on Compustat public com-
+panies over 1982–92, requires two years of audited-quality financials, and its own author
+states it cannot be reliably applied to private companies.
+An SMB applicant does not
+have Compustat-comparable statements; several M-Score inputs (market-value context,
+consistent SG&A tagging, PP&E schedules, amortization of intangibles) are frequently
+absent or unreliable in SMB filings — note that Beneish’s own neutral-fill rules for DEPI
+29
+Calibrated Abstention Agent — Research Extraction Synthesis
+and SGAI exist precisely because these fields go missing even in public filings.
+This does not mean discard it. The methodology transfers cleanly:
+1. Build indices as year-over-year ratio-of-ratios to catch internal inconsistency rather
+than absolute level.
+2. Winsorize at 1/99 and neutral-fill undefined denominators at 1.
+3. Select cutoffs by explicit ECM with a defended cost ratio, derived from actual loss
+economics as Beneish derives his 20–40:1 from the 40% value destruction figure.
+4. Benchmark against the naive all-clean strategy and report the cost ratio at which
+the model stops beating it. Almost nobody applies this discipline, and it is exactly
+what a model-risk reviewer should demand.
+But the M-Score’s coefficients must not be applied to SMB inputs and reported as fraud
+probabilities. If the writeup implies otherwise, that is a finding waiting to happen. Either
+re-estimate on an SMB sample — which is unavailable, and that unavailability is itself
+the finding — or use the M-Score explicitly as prior art for index construction and say so
+plainly.
+The one lead for Track 8
+TATA carries by far the largest coefficient (4.679, 𝑡= 3.73) and captures “the extent to which
+cash underlay reported earnings.” Total accruals are computed as the change in working-
+capital accounts other than cash, less depreciation.
+A fabricator producing internally consistent documents must fabricate the cash flows too.
+The accrual-versus-cash divergence is a structural signal that is expensive to fake coherently
+across multiple independent sources (bank statements must reconcile to the income statement
+must reconcile to the tax return).
+This is the closest thing in the set to a lead on coordinated multi-document fraud, and it is thin.
+Track 8 remains genuinely unsupported.
+30
+Calibrated Abstention Agent — Research Extraction Synthesis
+Cross-Cutting Analysis: What Composes, What Conflicts
+Composes cleanly
+Combination
+Result
+Geifman selective-risk definition + Mozannar
+instance-dependent deferral cost 𝑐(𝑥)
+Per-field routing objective with reviewer time
+correctly priced in
+Kamath calibrator (RF over softmax + length
+features, trained on 𝑝source ∪𝑞known) →
+Mozannar rejector
+Confidence estimator feeding a consistent
+deferral rule
+Mohri–Hashimoto sub-claim decomposition +
+Assumption 5.1
+Per-field entailment checking at linear, not
+combinatorial, annotation cost
+ACI update 𝛼𝑡+1 = 𝛼𝑡+ 𝛾(𝛼−err𝑡) wrapped
+around any of the above
+Distribution-free long-run coverage, given 𝑌𝑡
+revelation
+Mozannar CheXpert percentile protocol
+(𝜏= 𝑞(𝑥𝑐))
+Exact coverage control against a fixed
+reviewer budget
+Conflicts and unresolved gaps — state these, do not bury them
+1. ACI needs 𝑌𝑡every step; the project does not have it. Feedback is delayed, partial,
+and self-selected by the routing policy. Credit outcomes additionally suffer rejection in-
+ference (labels only for approved loans). Gibbs & Candès Section 7 names delayed and
+batched response as open. No paper in this set addresses selective labels.
+2. Marginal ≠conditional coverage, and marginal may be legally insufficient. Mohri
+& Hashimoto flag per-domain deviation from target and measure 𝜎≈0.09 in realized
+factuality.
+Under ECOA/Reg B, a portfolio average masking a weak segment is not a
+defense. Gibbs, Cherian & Candès (2023) must move from supporting citation to core
+dependency.
+3. Fairness does not compose. Mozannar Section 6.5: fair model (0.226) + fair expert
+(0.03) →composed discrimination 0.449.
+Direction of effect is not predictable from
+components. The composed extraction →routing →reviewer →decision pipeline must
+be measured end-to-end. No component-wise argument survives.
+4. OOD-detection routing is empirically inferior. Kamath Appendix A.3: outlier detec-
+tor AUC 24.23 versus MaxProb 20.54 versus calibrator 18.47. If Track 2’s “OOD vs. low-
+confidence” framing implies a separate escalation branch, the evidence says remove it.
+5. Score stationarity is a hard prerequisite for ACI. Gibbs & Candès Section 5: unnor-
+malized scores produce coverage swings of roughly 0.4–1.0 versus a tight band at 0.9.
+Normalize extraction confidence scores by a scale estimate.
+6. The M-Score does not apply to private SMBs, per its author. Track 5 needs re-
+grounding on an SMB-appropriate sample, or explicit reframing as methodological prior
+art.
+7. Hierarchical uncertainty propagation (field →derived metric →case decision)
+has no support in any of these six papers.
+Mohri & Hashimoto’s MATH result is
+closest and is per-step entailment against ground truth, not propagation. This is simulta-
+neously the project’s novelty and its largest technical risk.
+8. Track 8 (coordinated fraud) has essentially zero support here. Beneish’s TATA is a
+weak lead. The brief’s self-assessment that Track 8 is “the lowest priority / a known weak
+point” is accurate; go further and treat any adversarial-robustness claim in the writeup
+as an explicit limitation, not a design feature.
+9. If real labeled data from the new distribution arrives, retrain the extractor in-
+stead of calibrating. Kamath Section 5.9: retrain 16.35 AUC versus calibrate 17.87 —
+the headline finding reverses. Scope the calibrator-first claim to the genuinely-unknown-
+distribution regime.
+31
+Calibrated Abstention Agent — Research Extraction Synthesis
+Highest-Value Novel Angles, Ranked by Defensibility
+1. ACI-wrapped conformal factuality for numeric extraction. Explicitly named as future
+work by Mohri & Hashimoto.
+All components exist; the composition does not.
+Strongest
+claim. Contingent on resolving or honestly scoping the 𝑌𝑡-revelation problem — most likely
+by confining the guarantee to the field-extraction layer where reviewer corrections give fast
+feedback.
+2. Per-field learning-to-defer with instance-dependent reviewer cost 𝑐(𝑥), coverage-
+controlled via the CheXpert percentile protocol. Sanctioned by Mozannar’s framework
+(𝑙exp = 𝕀𝑚≠𝑦+ 𝑐(𝑥), stated as easily integrated) but not yet instantiated hierarchically. Mod-
+erate technical risk; the hierarchy is where it gets hard.
+3. End-to-end disparate-impact measurement of the composed model + reviewer sys-
+tem in lending. Mozannar proves the composition hazard exists and quantifies it (0.226 +
+0.03 →0.449). Nobody has measured it in credit decisioning. Regulatorily salient, method-
+ologically straightforward, publishable on its own and independent of whether the rest of
+the system works. Highest ratio of value to risk in the list.
+4.
+Conditional (not marginal) coverage as a compliance requirement.
+Reframes
+Gibbs/Cherian/Candès from nice-to-have to necessary, grounded in ECOA specificity require-
+ments plus Mohri & Hashimoto’s own 𝜎≈0.09 measurement. Novel framing, low technical
+risk, strengthens Track 7 simultaneously.
+5. Uncertainty propagation through derivation trees. Genuinely unsolved — no scaffold-
+ing anywhere in this set. Highest value, highest risk. Do not make it the load-bearing claim;
+make it the stretch contribution and be candid about its status.
+Closing assessment. Of the eight tracks in the brief, three (1, 2, 3) are well-grounded
+by this citation set, one (5) is grounded but on a population the author explicitly excludes,
+one (7) gains an unexpectedly strong and adverse result from Mozannar, and three (4, 6,
+8) have no support here at all.
+The most valuable content in this document is not the formulations — those are transcrib-
+able. It is items 1, 3, 4, and 6 in the conflicts list, each of which invalidates a plausible
+design decision that would otherwise have been made by default and discovered late.
+32

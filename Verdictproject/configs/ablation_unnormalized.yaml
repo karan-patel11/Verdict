@@ -1,0 +1,39 @@
+# Invariant-2 ablation — reproduce Gibbs & Candès §5 (F15). Identical to shift_severe EXCEPT
+# scoring.normalized = false: conformity scores use raw absolute error instead of the
+# scale-normalized |V_t - sigma^2_t| / sigma^2_t. The paper shows the unnormalized score is
+# non-stationary and swings coverage ~0.4-1.0 vs. the tight 0.9 band of the normalized score.
+# This config exists to make that failure reproducible on our stream, NOT to run in production
+# (the guaranteed loop rejects an unnormalized scorer at construction; invariant 2).
+r_star: 0.05
+delta: 0.05
+gamma: 0.005
+alpha: 0.10
+reviewer_budget_per_batch: 40
+seeds: [1, 2, 3, 4, 5, 6, 7, 8]
+
+stream:
+  n_cases: 2000
+  fields_per_case: 6
+  exchangeable: false
+  drift_strength: 0.60
+  seasonality_amplitude: 0.10
+  seasonality_period: 120
+  industry_cluster_length: 45
+  broker_batch_length: 25
+  campaign_burst_prob: 0.06
+  campaign_burst_length: 15
+  ood_error_gain: 0.07
+  confidence_truth_corr: 0.70   # F3: confidence is a partial predictor (r2~0.49)
+  err_intercept: 0.05           # base error at the median latent (q=0)
+  err_latent_slope: 0.17        # the LATENT drives error, not the observed confidence
+  err_floor: 0.002
+  err_cap: 0.95
+  overconfidence: 0.80
+  overconfidence_sd: 0.13
+
+scoring:
+  normalized: false              # <-- the invariant-2 violation under test
+
+baseline_experiment:
+  n_runs: 300
+  window: 200

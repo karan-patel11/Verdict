@@ -1,0 +1,36 @@
+# Baseline run — mild, realistic non-exchangeable stream.
+# Guarantee knobs (Parts 3, 6): r*, delta, gamma=0.005 (invariant 3), alpha (miscoverage
+# target => 1-alpha coverage), reviewer budget, seeds.
+r_star: 0.05          # selective-risk target (Geifman F1/F3)
+delta: 0.05           # SGR guarantee confidence (Geifman F3/F5); Pr{risk > B*} < delta
+gamma: 0.005          # ACI step size (Gibbs F11; invariant 3 default)
+alpha: 0.10           # ACI miscoverage target => 90% coverage
+reviewer_budget_per_batch: 40   # CheXpert percentile protocol operates against this (F10)
+seeds: [1, 2, 3, 4, 5, 6, 7, 8]
+
+stream:
+  n_cases: 2000
+  fields_per_case: 6
+  exchangeable: false            # the stream is NON-exchangeable (set true for i.i.d. ablation)
+  drift_strength: 0.20           # mild long-run familiarity decline
+  seasonality_amplitude: 0.08
+  seasonality_period: 120
+  industry_cluster_length: 30
+  broker_batch_length: 20
+  campaign_burst_prob: 0.03
+  campaign_burst_length: 15
+  ood_error_gain: 0.04           # modest overconfidence-under-shift lift
+  confidence_truth_corr: 0.70   # F3: confidence is a partial predictor (r2~0.49)
+  err_intercept: 0.05           # base error at the median latent (q=0)
+  err_latent_slope: 0.17        # the LATENT drives error, not the observed confidence
+  err_floor: 0.002
+  err_cap: 0.95
+  overconfidence: 0.80
+  overconfidence_sd: 0.13
+
+scoring:
+  normalized: true               # invariant 2: conformity scores are scale-normalized
+
+baseline_experiment:
+  n_runs: 300                    # temporal calibrate/deploy studies per seed (Geifman: 1000 splits)
+  window: 200                    # calibration and deployment window size (fields)
