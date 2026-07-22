@@ -69,9 +69,14 @@
   }
 
   /* ================================ LEFT RAIL ================================ */
-  function buildRail(report, analyses, onSelect) {
+  function buildRail(report, analyses, onSelect, onSubmit) {
     const host = document.getElementById("ws-rail-in");
     host.innerHTML = "";
+    // primary action: submit a live document (sample cases below remain as the offline path)
+    const submitBtn = el("button", { class: "ws-submit-btn", type: "button",
+      html: icons.file + "<span>Submit document</span>" });
+    submitBtn.addEventListener("click", onSubmit);
+    host.append(submitBtn);
     const done = analyses.filter((a) => a.status === "COMPLETED").length;
     const queued = analyses.filter((a) => a.status === "PARTIAL").length;
     const flagged = analyses.filter((a) => a.worst_severity === "HIGH" || a.worst_severity === "CRITICAL").length;
@@ -107,9 +112,9 @@
       const m = model(a, report.cases);
       const item = el("button", { class: "ws-case-item", type: "button", "data-id": a.analysis_id, "aria-current": "false" },
         el("div", { class: "ws-case-top" },
-          el("span", { class: "ws-case-id" }, a.case_id.replace("case-", "VRT-")),
-          statusChip(a.status)),
-        el("div", { class: "ws-case-name" }, archLabel(a.archetypes)),
+          el("span", { class: "ws-case-id" }, a.live ? a.case_id : a.case_id.replace("case-", "VRT-")),
+          a.live ? el("span", { class: "live-pip" }, "● LIVE") : statusChip(a.status)),
+        el("div", { class: "ws-case-name" }, a.live ? (a.file_label || "uploaded document") : archLabel(a.archetypes)),
         el("div", { class: "ws-case-foot" },
           el("span", { class: "ws-case-grade" }, "Grade " + m.grade),
           el("span", { style: "font:500 10px/1 var(--font-mono);color:var(--muted)" }, a.n_automated + "/" + a.n_fields + " auto")));
@@ -134,15 +139,17 @@
     const a = M.a;
     host.append(el("div", { class: "ws-case-title-row" },
       el("div", {},
-        el("h1", { class: "ws-case-title" }, archLabel(a.archetypes),
-          el("span", { class: "cid" }, a.case_id.replace("case-", "VRT-"))),
-        el("div", { style: "margin-top:8px" },
+        el("h1", { class: "ws-case-title" }, a.live ? (a.file_label || "Uploaded document") : archLabel(a.archetypes),
+          el("span", { class: "cid" }, a.live ? a.case_id : a.case_id.replace("case-", "VRT-"))),
+        el("div", { style: "margin-top:8px; display:flex; gap:10px; align-items:center; flex-wrap:wrap" },
           el("span", { class: "v-loop-tag b" }, el("span", { class: "g" }, "◇"), "Loop B · Instrumented"),
-          el("span", { class: "v-loop-note", style: "margin-left:10px" }, "case decision — telemetry only, no coverage guarantee"))),
+          a.live
+            ? el("span", { class: "ws-live-badge", title: "This demo does not read document contents; the judgment layer is live, extraction is simulated." }, "⚠ Simulated extraction · live judgment")
+            : el("span", { class: "v-loop-note" }, "case decision — telemetry only, no coverage guarantee"))),
       el("div", { class: "ws-case-head-right" },
         statusChip(a.status),
         el("button", { class: "v-btn v-btn-outline v-btn-sm", type: "button",
-          html: icons.play + "<span>Re-run analysis</span>", onclick: onRun }))));
+          html: icons.play + "<span>" + (a.live ? "Re-run (recorded)" : "Re-run analysis") + "</span>", onclick: onRun }))));
   }
 
   /* ================================ TABS ================================ */
@@ -541,9 +548,13 @@
     }
     const doneSet = new Set();
 
-    function open(a, cb) {
+    function open(a, cb, opts) {
+      opts = opts || {};
       onDone = cb; doneSet.clear();
-      title.textContent = "Processing " + a.case_id.replace("case-", "VRT-") + " — " + a.n_fields + " fields";
+      title.textContent = opts.live
+        ? "Live analysis — " + (a.file_label || a.case_id) + " · " + a.n_fields + " fields"
+        : "Processing " + a.case_id.replace("case-", "VRT-") + " — " + a.n_fields + " fields";
+      term.opts.runLabel = opts.live ? "live judgment run — extraction simulated" : "recorded run — replayed";
       drawStages("QUEUE", doneSet);
       proc.setAttribute("data-open", "true");
       term.opts.onStage = (stage) => {
@@ -560,6 +571,78 @@
     proc.addEventListener("click", (e) => { if (e.target === proc) hide(); });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && proc.getAttribute("data-open") === "true") hide(); });
     return { open };
+  }
+
+  /* ================================ SUBMIT DOCUMENT ================================ */
+  const ALLOWED_EXT = ["pdf", "png", "jpg", "jpeg", "csv", "txt", "tsv"];
+  const MAX_BYTES = 8 * 1024 * 1024;
+
+  function buildSubmit(onResult) {
+    const modal = document.getElementById("ws-submit");
+    const fileInput = document.getElementById("ws-file");
+    const drop = document.getElementById("ws-drop");
+    const chosen = document.getElementById("ws-chosen");
+    const runBtn = document.getElementById("ws-submit-run");
+    const errEl = document.getElementById("ws-submit-err");
+    const closeBtn = document.getElementById("ws-submit-close");
+    const cancelBtn = document.getElementById("ws-submit-cancel");
+    let file = null;
+
+    const showErr = (m) => { errEl.textContent = m; errEl.hidden = !m; };
+    const humanSize = (n) => n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(0) + " KB" : (n / 1048576).toFixed(1) + " MB";
+
+    function pick(f) {
+      showErr("");
+      if (!f) return;
+      const ext = f.name.includes(".") ? f.name.split(".").pop().toLowerCase() : "";
+      if (!ALLOWED_EXT.includes(ext)) { showErr("Unsupported file type. Allowed: PDF, PNG, JPG, CSV, TXT, TSV."); file = null; runBtn.disabled = true; chosen.hidden = true; return; }
+      if (f.size > MAX_BYTES) { showErr("File is larger than the 8 MB limit."); file = null; runBtn.disabled = true; chosen.hidden = true; return; }
+      if (f.size === 0) { showErr("That file is empty."); file = null; runBtn.disabled = true; chosen.hidden = true; return; }
+      file = f;
+      chosen.hidden = false;
+      chosen.innerHTML = "";
+      chosen.append(el("span", { html: icons.document }),
+        el("span", {}, f.name, el("span", { class: "meta" }, "  ·  " + humanSize(f.size) + "  ·  " + (ext.toUpperCase()))));
+      runBtn.disabled = false;
+    }
+
+    fileInput.addEventListener("change", () => pick(fileInput.files[0]));
+    drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("drag"); });
+    drop.addEventListener("dragleave", () => drop.classList.remove("drag"));
+    drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("drag"); if (e.dataTransfer.files[0]) pick(e.dataTransfer.files[0]); });
+
+    function close() { modal.removeAttribute("data-open"); }
+    function reset() { file = null; fileInput.value = ""; chosen.hidden = true; runBtn.disabled = true; showErr(""); runBtn.textContent = "Run live analysis"; }
+    closeBtn.addEventListener("click", close);
+    cancelBtn.addEventListener("click", close);
+    modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && modal.getAttribute("data-open") === "true") close(); });
+
+    runBtn.addEventListener("click", async () => {
+      if (!file) return;
+      runBtn.disabled = true; runBtn.textContent = "Analyzing…"; showErr("");
+      try {
+        const resp = await fetch("/api/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/octet-stream", "X-Filename": encodeURIComponent(file.name) },
+          body: file,
+        });
+        const ct = resp.headers.get("content-type") || "";
+        if (!ct.includes("application/json")) {
+          // static-only host (file:// or plain http.server): the function isn't available
+          throw new Error("offline");
+        }
+        const data = await resp.json();
+        if (!resp.ok || !data.ok) { showErr(data.error || "Analysis failed (" + resp.status + ")."); runBtn.disabled = false; runBtn.textContent = "Run live analysis"; return; }
+        close(); reset();
+        onResult(data);
+      } catch (err) {
+        showErr("Live analysis needs the deployed site (or `vercel dev`) — the /api endpoint isn't reachable here. The sample cases in the rail work offline.");
+        runBtn.disabled = false; runBtn.textContent = "Run live analysis";
+      }
+    });
+
+    return { open() { reset(); modal.setAttribute("data-open", "true"); closeBtn.focus(); } };
   }
 
   /* ================================ ORCHESTRATION ================================ */
@@ -601,7 +684,27 @@
       wireCommandBar(() => M, ctx);
     }
 
-    buildRail(report, analyses, (a) => selectCase(a));
+    // live document submission: run the real pipeline on an upload, then reuse the processing
+    // overlay + case view for the result (no second results UI)
+    function addLiveResult(data) {
+      const a = data.analysis;
+      analyses.unshift(a);
+      buildRail(report, analyses, (x) => selectCase(x), submit.open);
+      state.current = a; state.selected = null; state.field = null; state.tab = "decision";
+      M = model(a, report.cases);
+      renderHead(M, () => ctx.openProc(a));
+      renderTabs(M, state, setTab);
+      renderPanel(M, state, ctx);
+      renderInspector(M, ctx);
+      wireCommandBar(() => M, ctx);
+      document.querySelectorAll(".ws-case-item").forEach((b) =>
+        b.setAttribute("aria-current", String(b.dataset.id === a.analysis_id)));
+      // replay the REAL live run through the processing overlay, then settle on the case view
+      proc.open(a, () => selectCase(a, { keepTab: true }), { live: true });
+    }
+    const submit = buildSubmit(addLiveResult);
+
+    buildRail(report, analyses, (a) => selectCase(a), submit.open);
 
     // deep link ?case=an-... else first
     const wanted = new URLSearchParams(location.search).get("case");

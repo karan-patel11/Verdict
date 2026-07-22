@@ -115,7 +115,7 @@
       this.countEl = el("span", { class: "count" }, "0 / " + this.timeline.length);
       this.liveEl = el("span", { class: "live" });
       this.foot = el("div", { class: "term-foot" }, this.countEl,
-        el("span", {}, "recorded run — replayed"), this.liveEl);
+        el("span", {}, this.opts.runLabel || "recorded run — replayed"), this.liveEl);
 
       const logWrap = el("div", { style: "position:relative; display:flex; flex-direction:column; min-height:0; flex:1" }, this.log, this.jump);
       this.mount.append(this.head, logWrap, this.foot);

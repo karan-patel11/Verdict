@@ -277,6 +277,54 @@
 .ws-proc #ws-proc-term { flex: 1; min-height: 0; }
 .ws-proc .term { height: 320px; }
 
+/* ============================ SUBMIT DOCUMENT ============================ */
+.ws-submit .ws-proc-card { width: min(560px, 100%); }
+.sub-body { padding: 20px 22px 22px; overflow-y: auto; }
+/* the honesty badge — persistent, prominent, never shrunk to a footnote */
+.sub-badge {
+  display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; margin-bottom: 18px;
+  background: var(--route-bg); border: 1px solid color-mix(in srgb, var(--route) 34%, transparent);
+  border-left: 4px solid var(--route); border-radius: var(--r2);
+}
+.sub-badge-tag { font: 700 11px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--route); }
+.sub-badge p { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--ink-2); }
+.sub-drop {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
+  padding: 28px 20px; border: 1.5px dashed var(--line-strong); border-radius: var(--r2);
+  background: var(--surface-2); cursor: pointer;
+  transition: border-color var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
+}
+.sub-drop:hover, .sub-drop.drag { border-color: var(--accent); background: var(--accent-bg); }
+.sub-drop-ic { font-size: 26px; color: var(--accent-text); line-height: 1; }
+.sub-drop-t { font: 600 14px/1.2 var(--font-ui); color: var(--ink); }
+.sub-drop-s { font: 500 11px/1.3 var(--font-mono); color: var(--muted); }
+.sub-chosen { margin-top: 12px; padding: 11px 13px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r2); font: 500 12.5px/1.4 var(--font-mono); color: var(--ink); display: flex; align-items: center; gap: 9px; }
+.sub-chosen .meta { color: var(--muted); font-size: 11px; }
+.sub-privacy { display: flex; gap: 9px; align-items: flex-start; margin: 16px 0 0; font-size: 12px; line-height: 1.5; color: var(--muted); }
+.sub-privacy b { color: var(--ink-2); font-weight: 600; }
+.sub-lock { flex: none; }
+.sub-err { margin-top: 12px; padding: 10px 13px; background: var(--warn-bg); border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); border-radius: var(--r2); font-size: 12.5px; color: var(--warn); }
+.sub-actions { display: flex; gap: 10px; margin-top: 18px; }
+
+/* rail primary submit button */
+.ws-submit-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+  margin-bottom: 14px; padding: 10px 12px; cursor: pointer;
+  font: 600 12.5px/1 var(--font-ui); color: var(--accent-ink); background: var(--accent-strong);
+  border: 1px solid transparent; border-radius: var(--r2);
+}
+.ws-submit-btn:hover { filter: brightness(.93); }
+.ws-submit-btn svg { flex: none; }
+
+/* persistent SIMULATED badge on a live case's header + a LIVE marker */
+.ws-live-badge {
+  display: inline-flex; align-items: center; gap: 6px; font: 700 9.5px/1 var(--font-mono);
+  letter-spacing: .07em; text-transform: uppercase; padding: 4px 9px; border-radius: var(--r1);
+  color: var(--route); background: var(--route-bg);
+  border: 1px solid color-mix(in srgb, var(--route) 34%, transparent);
+}
+.ws-case-item .live-pip { font: 700 8.5px/1 var(--font-mono); letter-spacing: .06em; color: var(--accent-text); }
+
 /* ============================ RESPONSIVE ============================ */
 @media (max-width: 1120px) {
   .ws { grid-template-columns: 220px minmax(0, 1fr) 300px; }

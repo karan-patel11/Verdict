@@ -1,0 +1,5 @@
+# Runtime dependency for the Vercel Python function (api/analyze.py).
+# The judgment pipeline itself is pure standard library — numpy is unused and scikit-learn is
+# only imported lazily by the off-path (F4) calibrator, which the routing path never calls.
+# PyYAML is used only to read the existing configs/baseline.yaml (one source of truth for config).
+PyYAML>=6.0

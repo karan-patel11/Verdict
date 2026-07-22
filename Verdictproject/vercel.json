@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "functions": {
+    "api/analyze.py": {
+      "includeFiles": "{src,configs}/**",
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    { "source": "/((?!api/).*)", "destination": "/frontend/$1" }
+  ]
+}

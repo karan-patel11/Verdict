@@ -64,6 +64,42 @@
   </div>
 </div>
 
+<!-- submit-document overlay -->
+<div class="ws-proc ws-submit" id="ws-submit" role="dialog" aria-modal="true" aria-labelledby="ws-submit-title">
+  <div class="ws-proc-card">
+    <div class="ws-proc-head">
+      <span class="t" id="ws-submit-title">Submit a document</span>
+      <button class="x" id="ws-submit-close" type="button" aria-label="Close">&times;</button>
+    </div>
+    <div class="sub-body">
+      <div class="sub-badge" role="note">
+        <span class="sub-badge-tag">&#9888; Simulated extraction</span>
+        <p>This demo <b>does not read your document&rsquo;s contents.</b> It derives a deterministic
+          seed from the file and runs the <b>real judgment pipeline</b> — field loop, three-path
+          routing, and the ACI threshold — on a synthetic case. The judgment layer is live;
+          extraction is simulated.</p>
+      </div>
+      <label class="sub-drop" id="ws-drop" for="ws-file">
+        <span class="sub-drop-ic" aria-hidden="true">&#8682;</span>
+        <span class="sub-drop-t">Choose a file or drop it here</span>
+        <span class="sub-drop-s">PDF, PNG, JPG, CSV, TXT, TSV · up to 8&nbsp;MB</span>
+        <input type="file" id="ws-file" accept=".pdf,.png,.jpg,.jpeg,.csv,.txt,.tsv" hidden>
+      </label>
+      <div class="sub-chosen" id="ws-chosen" hidden></div>
+      <p class="sub-privacy">
+        <span class="sub-lock" aria-hidden="true">&#128274;</span>
+        Your file is analyzed <b>in memory for this one request</b> and is never stored to disk or
+        logged — neither its contents nor its name.
+      </p>
+      <div class="sub-err" id="ws-submit-err" role="alert" hidden></div>
+      <div class="sub-actions">
+        <button class="v-btn v-btn-primary" id="ws-submit-run" type="button" disabled>Run live analysis</button>
+        <button class="v-btn v-btn-ghost" id="ws-submit-cancel" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- processing overlay -->
 <div class="ws-proc" id="ws-proc" role="dialog" aria-modal="true" aria-label="Processing analysis">
   <div class="ws-proc-card">
