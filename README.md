@@ -1,6 +1,6 @@
 # Verdict
 
-### A credit-underwriting agent that only rules when it has earned the right to.
+### A credit-underwriting decision layer that only rules when it has earned the right to.
 
 **Calibrated field-level abstention under distribution shift.**  
 Verdict estimates, *before making a decision*, which extracted fields can be safely automated and which should be deferred to human review.
@@ -10,7 +10,7 @@ The contribution is deliberately narrow and falsifiable:
 > **Can the system automate useful work while keeping realized marginal miscoverage at or below a target α, even when document archetypes and industries appear that were absent from training?**
 
 [![Live Demo](https://img.shields.io/badge/Live_Demo-Vercel-black?logo=vercel)](https://verdict-bice.vercel.app/)
-[![Tests](https://img.shields.io/badge/tests-57_passing-brightgreen)](#reproduce-it)
+[![Tests](https://img.shields.io/badge/tests-90_passing-brightgreen)](#reproduce-it)
 [![Python](https://img.shields.io/badge/Python-3.x-blue?logo=python)](#reproduce-it)
 [![Coverage](https://img.shields.io/badge/Field_Loop-ACI_Calibrated-blueviolet)](#two-loops)
 
@@ -85,19 +85,33 @@ Under:
 configs/shift_severe.yaml
 ```
 
-the current experiment produces approximately:
+the current experiment produces (synthetic stream, 12,000 fields, 8 seeds; figures match `frontend/report.json` and `report/PROJECT_REPORT.md`):
 
 | Metric | Result |
 | --- | ---: |
-| Naive baseline violation rate | **~54%** |
+| Naive threshold: held-out windows violating r* = 0.05 | **57%** (min seed 51%) |
 | Required baseline failure threshold | **>50% — PASS** |
-| Seeds | **8** |
-| Distance above >50% boundary | **~5σ** |
-| Field-loop marginal miscoverage | **≈ α** |
-| Forecast failures | **0** |
-| SGR Gascuel–Caraux threshold violation rate | **~9%** |
+| SGR Gascuel–Caraux threshold: windows violating r* = 0.05 | **15%** |
+| Seeds | **8** (SGR beats naive on all 8) |
+| Field-loop marginal miscoverage (target α = 0.10) | **6.9%** |
+| Field-loop conditional selective risk (reported, not guaranteed) | **9.0%** |
+| Fields automated | **76.1%** |
+| Forecast failures | **0 of 39** scored batches |
 
-The naive baseline therefore fails its target in more than half of aggregated runs, while the calibrated field loop tracks its marginal miscoverage target.
+Two different mechanisms produce these numbers and they should not be merged. The 57% vs 15% comparison is the static SGR threshold against the naive threshold, offline, on conditional selective risk. The 6.9% is the running field loop on marginal miscoverage. The running loop's conditional selective risk is 9.0%, which exceeds r* = 0.05 and is reported as such.
+
+### Is ACI doing the work? (ablation)
+
+At α = 0.10 it is not: the reviewer-accuracy gate alone keeps miscoverage under target, and ACI is slack. ACI alone (reviewer gate removed) holds 9.3% against 10%, where no gate gives 12.4%. At stricter targets ACI binds and holds where the reviewer gate alone does not:
+
+| Target α | Reviewer gate only | With ACI | Automated with ACI |
+| ---: | ---: | ---: | ---: |
+| 0.10 | 6.9% | 6.8% | 75.8% |
+| 0.05 | 6.9% | 4.8% | 62.9% |
+| 0.03 | 6.9% | 2.8% | 48.1% |
+| 0.01 | 6.9% | 0.9% | 25.6% |
+
+Marginal miscoverage, means over 8 seeds. Full table and method: [`report/ABLATION_ACI.md`](Verdictproject/report/ABLATION_ACI.md). Reproduce with `python -m abstention.experiment.ablation`.
 
 ---
 
@@ -423,7 +437,7 @@ pytest
 Current suite:
 
 ```text
-57 tests
+90 Python tests (pytest) + 18 front-end engine tests (node --test frontend/tests/graph.test.mjs)
 ```
 
 covering:

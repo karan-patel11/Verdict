@@ -4,3 +4,7 @@ __pycache__/
 *.egg-info/
 
 reports/
+
+# OS / editor clutter
+.DS_Store
+.Rhistory

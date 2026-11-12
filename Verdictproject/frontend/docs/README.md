@@ -1,4 +1,4 @@
-# Verdict — a credit underwriting agent that only rules when it's earned the right to
+# Verdict — a credit underwriting decision layer that only rules when it's earned the right to
 
 Calibrated, **field-level abstention that holds up under distribution shift**. The contribution
 is narrow and provable: the system forecasts, *in advance*, what fraction of fields it can
@@ -25,14 +25,17 @@ layer (Loop B) is instrumented only: it does not run the ACI update and claims n
 
 ```bash
 pip install -e .            # numpy, scikit-learn, PyYAML
-pytest                      # 57 tests: 12 invariants, formula checks, the >50% baseline, loops
+pytest                      # 90 tests: 12 invariants, formula checks, the >50% baseline, loops, audit regressions, ACI ablation
 python -m abstention.experiment --config configs/shift_severe.yaml   # writes frontend/report.json
 ```
 
-Expected under `shift_severe.yaml`: the **naive baseline violates r* in ~54% of runs** (>50%,
-PASS, aggregated over 8 seeds at ~5σ above the boundary), while the **field loop holds marginal
-miscoverage ≈ α** and logs **0 forecast failures**. On the same windows SGR's Gascuel–Caraux
-bound threshold violates only ~9% — the guarantee machinery beats eyeball-thresholding badly.
+Expected under `shift_severe.yaml`: the **naive baseline violates r* = 0.05 in 57% of held-out
+windows** (>50%, PASS, aggregated over 8 seeds), while the **field loop holds marginal
+miscoverage at 6.9% against α = 0.10** and logs **0 forecast failures in 39 scored batches**. On
+the same windows SGR's Gascuel–Caraux bound threshold violates in 15%. These are two different
+mechanisms on two different metrics: the running loop's conditional selective risk is 9.0%,
+above r*, and is reported, not guaranteed. Whether ACI or the reviewer gate produces the 6.9%
+is answered in `ABLATION_ACI.md`: at α = 0.10 the reviewer gate does; at α ≤ 0.05 ACI binds.
 
 **Honest mechanism.** The naive rule's >50% failure is dominated by finite-sample *selection
 bias* (maximizing coverage picks the luckiest threshold, so train risk under-estimates true

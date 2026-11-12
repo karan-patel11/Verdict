@@ -1,0 +1,175 @@
+{
+  "config": "configs/shift_severe.yaml",
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+  ],
+  "targets": [
+    {
+      "alpha": 0.1,
+      "variants": {
+        "full": {
+          "automation_rate": 0.7583,
+          "marginal_miscoverage": 0.0681,
+          "conditional_selective_risk": 0.0899,
+          "routed_by_conformal_gate": 0.0473,
+          "mean_alpha_t": 0.9871,
+          "max_marginal_miscoverage": 0.0698
+        },
+        "reviewer_only": {
+          "automation_rate": 0.7605,
+          "marginal_miscoverage": 0.0685,
+          "conditional_selective_risk": 0.09,
+          "routed_by_conformal_gate": 0.025,
+          "mean_alpha_t": 0.9853,
+          "max_marginal_miscoverage": 0.0701
+        },
+        "aci_only": {
+          "automation_rate": 0.8581,
+          "marginal_miscoverage": 0.0932,
+          "conditional_selective_risk": 0.1087,
+          "routed_by_conformal_gate": 0.1419,
+          "mean_alpha_t": 0.8842,
+          "max_marginal_miscoverage": 0.0946
+        },
+        "neither": {
+          "automation_rate": 0.975,
+          "marginal_miscoverage": 0.124,
+          "conditional_selective_risk": 0.1272,
+          "routed_by_conformal_gate": 0.025,
+          "mean_alpha_t": 0.1046,
+          "max_marginal_miscoverage": 0.1256
+        }
+      },
+      "aci_effect_on_automation": -0.0022,
+      "aci_binding": false,
+      "aci_effect_on_miscoverage": -0.0004
+    },
+    {
+      "alpha": 0.05,
+      "variants": {
+        "full": {
+          "automation_rate": 0.6288,
+          "marginal_miscoverage": 0.0477,
+          "conditional_selective_risk": 0.0759,
+          "routed_by_conformal_gate": 0.3683,
+          "mean_alpha_t": 0.6482,
+          "max_marginal_miscoverage": 0.0482
+        },
+        "reviewer_only": {
+          "automation_rate": 0.7605,
+          "marginal_miscoverage": 0.0685,
+          "conditional_selective_risk": 0.09,
+          "routed_by_conformal_gate": 0.025,
+          "mean_alpha_t": 0.0392,
+          "max_marginal_miscoverage": 0.0701
+        },
+        "aci_only": {
+          "automation_rate": 0.6274,
+          "marginal_miscoverage": 0.0477,
+          "conditional_selective_risk": 0.0761,
+          "routed_by_conformal_gate": 0.3726,
+          "mean_alpha_t": 0.644,
+          "max_marginal_miscoverage": 0.0482
+        },
+        "neither": {
+          "automation_rate": 0.975,
+          "marginal_miscoverage": 0.124,
+          "conditional_selective_risk": 0.1272,
+          "routed_by_conformal_gate": 0.025,
+          "mean_alpha_t": -0.0031,
+          "max_marginal_miscoverage": 0.1256
+        }
+      },
+      "aci_effect_on_automation": -0.1317,
+      "aci_binding": true,
+      "aci_effect_on_miscoverage": -0.0208
+    },
+    {
+      "alpha": 0.03,
+      "variants": {
+        "full": {
+          "automation_rate": 0.4812,
+          "marginal_miscoverage": 0.0283,
+          "conditional_selective_risk": 0.0587,
+          "routed_by_conformal_gate": 0.5188,
+          "mean_alpha_t": 0.4929,
+          "max_marginal_miscoverage": 0.0285
+        },
+        "reviewer_only": {
+          "automation_rate": 0.7605,
+          "marginal_miscoverage": 0.0685,
+          "conditional_selective_risk": 0.09,
+          "routed_by_conformal_gate": 0.025,
+          "mean_alpha_t": -0.0036,
+          "max_marginal_miscoverage": 0.0701
+        },
+        "aci_only": {
+          "automation_rate": 0.4812,
+          "marginal_miscoverage": 0.0283,
+          "conditional_selective_risk": 0.0587,
+          "routed_by_conformal_gate": 0.5188,
+          "mean_alpha_t": 0.4929,
+          "max_marginal_miscoverage": 0.0285
+        },
+        "neither": {
+          "automation_rate": 0.975,
+          "marginal_miscoverage": 0.124,
+          "conditional_selective_risk": 0.1272,
+          "routed_by_conformal_gate": 0.025,
+          "mean_alpha_t": -0.0103,
+          "max_marginal_miscoverage": 0.1256
+        }
+      },
+      "aci_effect_on_automation": -0.2793,
+      "aci_binding": true,
+      "aci_effect_on_miscoverage": -0.0402
+    },
+    {
+      "alpha": 0.01,
+      "variants": {
+        "full": {
+          "automation_rate": 0.2556,
+          "marginal_miscoverage": 0.009,
+          "conditional_selective_risk": 0.0352,
+          "routed_by_conformal_gate": 0.7444,
+          "mean_alpha_t": 0.2623,
+          "max_marginal_miscoverage": 0.0092
+        },
+        "reviewer_only": {
+          "automation_rate": 0.7605,
+          "marginal_miscoverage": 0.0685,
+          "conditional_selective_risk": 0.09,
+          "routed_by_conformal_gate": 0.025,
+          "mean_alpha_t": -0.0152,
+          "max_marginal_miscoverage": 0.0701
+        },
+        "aci_only": {
+          "automation_rate": 0.2556,
+          "marginal_miscoverage": 0.009,
+          "conditional_selective_risk": 0.0352,
+          "routed_by_conformal_gate": 0.7444,
+          "mean_alpha_t": 0.2623,
+          "max_marginal_miscoverage": 0.0092
+        },
+        "neither": {
+          "automation_rate": 0.975,
+          "marginal_miscoverage": 0.124,
+          "conditional_selective_risk": 0.1272,
+          "routed_by_conformal_gate": 0.025,
+          "mean_alpha_t": -0.0164,
+          "max_marginal_miscoverage": 0.1256
+        }
+      },
+      "aci_effect_on_automation": -0.5049,
+      "aci_binding": true,
+      "aci_effect_on_miscoverage": -0.0595
+    }
+  ]
+}
