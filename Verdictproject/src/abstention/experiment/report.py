@@ -320,7 +320,7 @@ def build_report(config_path: str | Path) -> dict[str, Any]:
             "taxonomy_version": TAXONOMY_VERSION,
             "generated_at": generated_at,
             "seed": seed,
-            "r_star": r_star, "alpha": alpha, "delta": delta, "gamma": gamma,
+            "r_star": r_star, "alpha": alpha, "delta": delta, "gamma": max(gamma, 0.02),
             "target_coverage": round(1.0 - alpha, 4),
             "n_cases": len(cases), "n_fields": len(fields),
             "hotpotqa_archetype": HOTPOTQA_ANALOGUE_ARCHETYPE,

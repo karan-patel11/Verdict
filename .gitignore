@@ -1,2 +1,7 @@
 .DS_Store
 .Rhistory
+
+# v2 real-filings evaluation
+Verdictproject/corpus/cache/
+Verdictproject/corpus/*/
+Verdictproject/runs/

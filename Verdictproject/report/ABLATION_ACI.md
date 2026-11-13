@@ -56,6 +56,8 @@ Variants: **full** = both gates (shipped). **reviewer only** = conformal gate of
 ## Implementation note
 
 `experiment/report.py` runs the field loop with `gamma = max(config gamma, 0.02)`, so the loop's
-ACI step size on these configs is 0.02, not the 0.005 written in the config files and reported
-in `report.json` meta. The ablation uses the same floor so its numbers match the headline run.
-The 0.005 value should either be used or the reported value corrected.
+ACI step size on these configs is 0.02. Earlier versions of the config files and `report.json` meta
+said 0.005, which was never the value in use. Resolved: `configs/shift_severe.yaml` and the reported
+meta now say 0.02, and the real-filings evaluation pre-registers 0.02 (0.01 and 0.005 as sensitivity
+runs). No result changed; only the stated value was corrected. The ablation uses the same floor so
+its numbers match the headline run.

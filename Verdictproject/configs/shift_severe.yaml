@@ -3,7 +3,8 @@
 # (test_naive_baseline.py), while the guaranteed field loop holds r* (field_loop, step 6).
 r_star: 0.05
 delta: 0.05
-gamma: 0.005
+gamma: 0.02          # effective ACI step size: experiment/report.py uses max(gamma, 0.02); the old
+                     # value 0.005 was written here but never used (see report/ABLATION_ACI.md)
 alpha: 0.10
 reviewer_budget_per_batch: 40
 seeds: [1, 2, 3, 4, 5, 6, 7, 8]

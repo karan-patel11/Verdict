@@ -1,0 +1,28 @@
+# Real-filings evaluation: frozen parameters (pre-registered in PREREG.md).
+# This file is hashed at the git tag `prereg-v1`; the lockbox refuses to run if it changes after.
+# DRAFT until the freeze: values marked (dev-tuned) are set from DEV results only, never from test.
+
+alphas: [0.10, 0.05]
+gamma: 0.02              # ACI step size. Every published synthetic number was produced at 0.02
+                         # (experiment/report.py: gamma = max(config, 0.02)). 0.01 and 0.005 are
+                         # sensitivity runs: the finite-stream gap bound at T=2400 is ~0.038 and ~0.075.
+batch_size: 200
+min_calibration: 100
+quantile_window: 800
+reviewer_accuracy: 0.70  # oracle reviewer's assumed accuracy, as in the simulation
+audit_rates: [1.0, 0.2]
+b1_cutoff: 0.90          # B1: the industry-default raw-confidence cutoff
+sgr_delta: 0.05
+n_boot: 1000
+seed: 20261123
+h1_slack: 0.02
+h1_min_automation: 0.30
+h4_min_automation_cost: 0.01
+window: 200
+window_target: 0.05
+shift_window: 300
+min_errors: 60           # fewer test errors than this => every hypothesis is "inconclusive"
+
+# (dev-tuned) one primary confidence signal per extractor, chosen by lowest dev AURC
+# (`python -m abstention.experiment.run_real choose-signal`). Empty until the freeze.
+primary_signal: {}

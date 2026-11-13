@@ -115,6 +115,19 @@ Marginal miscoverage, means over 8 seeds. Full table and method: [`report/ABLATI
 
 ---
 
+## v2: real-filings evaluation (in progress, no real-data result yet)
+
+Everything above is a **simulation**. It supports no claim about real documents. The v2 evaluation tests the same gate on real SEC filings read by an LLM extractor (first extractor: Claude Fable 5.2), with gold labels from the filers' own XBRL facts, under rules written down before the test set is opened:
+
+- hypotheses, pass rules and frozen parameters: [`PREREG.md`](Verdictproject/PREREG.md), [`configs/real_eval.yaml`](Verdictproject/configs/real_eval.yaml) (git tag `prereg-v1` once frozen)
+- test set is a run-once lockbox ([`lockbox.py`](Verdictproject/src/abstention/experiment/lockbox.py)); deviations are logged in [`DEVIATIONS.md`](Verdictproject/DEVIATIONS.md)
+- limits stated up front: public companies are a stand-in for small-business lending documents, the reviewer is an oracle, one person labels and runs it, and with fewer than 60 test errors the result is declared inconclusive ([`EVAL_CARD.md`](Verdictproject/EVAL_CARD.md))
+- every published figure is a row in [`CLAIMS.md`](Verdictproject/CLAIMS.md), checked by `tests/test_claims_ledger.py`. Example, simulation only: the full gate automated [[claim:abl.a05.full.automation]] of fields at a 5% target with marginal miscoverage [[claim:abl.a05.full.miscoverage]].
+
+Run order: [`docs/V2_EVAL_PLAN.md`](Verdictproject/docs/V2_EVAL_PLAN.md).
+
+---
+
 # What is Actually Guaranteed?
 
 This distinction matters.
@@ -437,7 +450,7 @@ pytest
 Current suite:
 
 ```text
-90 Python tests (pytest) + 18 front-end engine tests (node --test frontend/tests/graph.test.mjs)
+143 Python tests (pytest) + 18 front-end engine tests (node --test frontend/tests/graph.test.mjs)
 ```
 
 covering:

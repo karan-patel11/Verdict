@@ -132,7 +132,9 @@ expert 0.03, confidence-baseline composition 0.449 — "fairness does not compos
 
 Also verified: M_t(α) := P(S_t(X_t,Y_t) > Q̂_t(1−α)); α*_t := sup{β ∈ [0,1] : M_t(β) ≤ α};
 weighted alternative Eq. (3) with w_s ∝ 0.95^{t−s} produces very similar, smoother trajectories;
-experiments use γ = 0.005 (§2.1/§2.2) — the configs/baseline.yaml default.
+the paper's experiments use γ = 0.005 (§2.1/§2.2), which is the configs/baseline.yaml library default
+(invariant 3). This project's stream experiments run at γ = 0.02 (`experiment/report.py` takes max(config, 0.02));
+the real-filings evaluation pre-registers γ = 0.02 and reports 0.01 and 0.005 as sensitivity runs.
 
 **F12 — Clamp bounds. VERIFIED.** §4.1, **Lemma 4.1**, p.6, verbatim: "With probability one we
 have that ∀t ∈ ℕ, α_t ∈ [−γ, 1+γ]." (Not [0,1].)
